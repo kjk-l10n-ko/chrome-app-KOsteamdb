@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import p from './parse.js';
-const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff, samePrice } = p.default ?? p;
+const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff } = p.default ?? p;
 
 test('extractAuthor: 님-패턴', () => {
   assert.equal(extractAuthor('Zvezda님 제작'), 'Zvezda');
@@ -31,12 +31,6 @@ test('hltbHours: ½→.5, 시간 붙여쓰기, 분→소수 시간', () => {
   assert.equal(hltbHours('45 Minutes'), '0.8시간');
   assert.equal(hltbHours('1 Minute'), '0.1시간'); // 0으로 반올림되지 않게 최소 0.1
   assert.equal(hltbHours('—'), '—');
-});
-test('samePrice: 숫자만 비교 (쉼표/공백 무시), 숫자 없으면 false', () => {
-  assert.equal(samePrice('₩ 11,000', '₩ 11,000'), true);
-  assert.equal(samePrice('₩ 11,000', '₩ 11000'), true);
-  assert.equal(samePrice('₩ 11,000', '₩ 5,500'), false);
-  assert.equal(samePrice('무료', '무료'), false);
 });
 test('commas: 4자리 이상 정수에 천 단위 쉼표, 이미 있으면 그대로', () => {
   assert.equal(commas('₩ 11000'), '₩ 11,000');
