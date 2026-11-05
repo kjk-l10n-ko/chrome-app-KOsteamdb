@@ -42,6 +42,7 @@ parse.test.mjs  node --test
 1. **`한글 여부:`** (소스 `.kr-patch-banner`)
    - 유형 라벨이 `.official-steam`(`공식 한국어`) 또는 `.official-with-user`(`공식(추가정보 존재)`) → 맨 앞에 녹색(`#6c3` = SteamDB 평가 `.steamdb_rating_good`) `공식 한글화`, 패치 링크 아이템이 있으면 ` | `로 이어서 표시(`공식 한글화 | 한글 패치(Kiss)`). `공식지원 추정`·다이렉트 게임즈·스토브는 아래 규칙 그대로.
    - `.kr-patch-link-item` 각각 → 링크 1개: `href` = `a.kr-patch-link-text`의 href(큐레이터 링크면 아래 직접 링크로 교체), `target="_blank" rel="noopener noreferrer"`, 텍스트 = `한글 패치({이름})`, `title` = 설명 원문(줄바꿈은 ` / `).
+   - 설명(`.kr-patch-link-description`) 중 하나라도 `공식`을 포함하는 아이템은 표시하지 않는다(공식 한글화는 위 `공식 한글화` 표기로 충분). 아이템이 모두 걸러지면 유형 라벨 텍스트.
    - 큐레이터 링크(같은 origin, `curator_clanid` 파라미터 有): href당 1회 `fetch`(쿠키 포함) → `DOMParser`로 `[data-featuretarget="referring-curator-review"]`의 `data-props` JSON → `curatorLink`: `recommendation.link_url`, 없으면 `blurb`의 첫 `http(s)://` URL(끝 `),.` 제거). http(s)가 아니거나 없음/실패 → 큐레이터 링크 유지. 결과는 메모리 캐시, 확정 시 재동기화.
    - 이름 = 그 아이템의 `.kr-patch-link-description`들에 `extractAuthor` 적용 → 결과 중복 제거 후 `, ` 결합. 결과 없음 → 사이트명(`.kr-patch-link-text` 텍스트에서 `[`·`]` 문자만 제거, 예: `[ 한패넷 ]`→`한패넷`).
    - 링크 구분자 ` | `.

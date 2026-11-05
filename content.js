@@ -71,6 +71,7 @@
       const descs = [...item.querySelectorAll(SEL.patchDesc)]
         .map((d) => d.textContent)
         .filter(Boolean);
+      if (descs.some((d) => d.includes('공식'))) continue; // 설명에 '공식'이 있는 링크는 표시하지 않음
       const names = [...new Set(descs.map((d) => P.extractAuthor(d)).filter(Boolean))];
       const fallback = (a?.textContent || '').replace(/[[\]]/g, '').trim() || '링크';
       const text = `한글 패치(${names.length ? names.join(', ') : fallback})`;
