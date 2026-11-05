@@ -87,16 +87,20 @@
         current = purchase.querySelector(SEL.price)?.textContent.trim() || null;
       }
     }
-    if (!current || /^₩\s*0(?:[.,]0+)?\s*$/.test(current)) return null;
-    const box = el('div');
-    box.appendChild(document.createTextNode(current + (disc ? `(${disc})` : '')));
+    // 숫자가 없는 가격 문구(무료로 플레이하기/Free to Play)나 0원은 현재가 없음
+    const hasPrice = current
+      && /\d/.test(current)
+      && !/^₩\s*0(?:[.,]0+)?\s*$/.test(current);
     const bs = [...(document.querySelector(SEL.steamdbTop)?.querySelectorAll('b') ?? [])]
       .map((b) => b.textContent);
     const low = P.parseSteamdbTop(bs);
+    if (!hasPrice && !low) return null;
+    const box = el('div');
+    if (hasPrice) box.appendChild(document.createTextNode(current + (disc ? `(${disc})` : '')));
     if (low) {
       const appid = (location.pathname.match(/\/app\/(\d+)/) ?? [])[1];
       if (appid) {
-        box.appendChild(document.createTextNode(' | '));
+        if (box.childNodes.length) box.appendChild(document.createTextNode(' | '));
         const a = el('a', null, `최저 ${low.price}${low.discount ? `(${low.discount})` : ''}`);
         a.href = `https://steamdb.info/app/${appid}/`;
         box.appendChild(a);
