@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Steam Info Relay",
+  "version": "0.1.0",
+  "description": "Re-renders Steam HLTB / SteamDB lowest price / KOSTEAM patch info as glance rows.",
+  "content_scripts": [
+    {
+      "matches": ["https://store.steampowered.com/app/*"],
+      "js": ["parse.js", "content.js"],
+      "css": ["hide.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

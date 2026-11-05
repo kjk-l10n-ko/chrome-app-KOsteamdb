@@ -1,0 +1,4 @@
+#hltb-glance, .steamdb_prices, .kr-patch-banner { display: none !important; }
+#kr-relay > .dev_row { margin-top: 10px; }
+#kr-relay a { color: #8f98a0; }
+#kr-relay a:hover { color: #dcdedf; }
