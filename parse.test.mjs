@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import p from './parse.js';
-const { extractAuthor, translateHltb, parseHltbLines, parseSteamdbTop } = p.default ?? p;
+const { extractAuthor, translateHltb, parseHltbLines, parseSteamdbTop, curatorLink } = p.default ?? p;
 
 test('extractAuthor: 님-패턴', () => {
   assert.equal(extractAuthor('Zvezda님 제작'), 'Zvezda');
@@ -45,4 +45,26 @@ test('parseHltbLines', () => {
     main: '메인 스토리: 25½시간', sides: '메인+서브: 40시간', completionist: '완전 정복: 80시간',
   });
   assert.equal(parseHltbLines(''), null);
+});
+
+const props = (link_url, blurb) => JSON.stringify({ recommendation: { link_url, blurb } });
+test('curatorLink: blurb의 첫 http(s) URL (실제 퀘이사존 큐레이터 샘플)', () => {
+  assert.equal(curatorLink(props('', '유저 한국어 패치 - Kiss 님,\n\n링크: https://cafe.naver.com/fpsgame/1563504\n\n')),
+    'https://cafe.naver.com/fpsgame/1563504');
+  assert.equal(curatorLink(props('', '유저 한국어 패치 - QR 님,\n\n링크: http://steamcommunity.com/sharedfiles/filedetails/?id=513304103\n\n\n\n')),
+    'http://steamcommunity.com/sharedfiles/filedetails/?id=513304103');
+  assert.equal(curatorLink(props('', '유저 한국어 패치 링크: https://kimangdae.tistory.com/74')),
+    'https://kimangdae.tistory.com/74');
+  assert.equal(curatorLink(props('', '유저 한국어 패치 - https://arie.tistory.com/164\n\n')),
+    'https://arie.tistory.com/164');
+});
+test('curatorLink: link_url 우선, 끝 구두점 제거', () => {
+  assert.equal(curatorLink(props('https://a.example/x', '링크: https://b.example/y')), 'https://a.example/x');
+  assert.equal(curatorLink(props('', '링크: https://b.example/y).')), 'https://b.example/y');
+});
+test('curatorLink: 쓸 수 있는 링크 없음 → null', () => {
+  assert.equal(curatorLink(props('', '유저 한국어 패치')), null);
+  assert.equal(curatorLink(props('javascript:alert(1)', '')), null);
+  assert.equal(curatorLink('{"recommendation":null}'), null);
+  assert.equal(curatorLink('not json'), null);
 });

@@ -1,6 +1,6 @@
 /* Steam Info Relay
-   Steam HLTB / SteamDB / KOSTEAM이 주입한 DOM을 읽어 #glanceMidCtn 끝에
-   우리 행('한글 패치:', 'HowLongToBeat:', '가격:')으로 다시 그린다.
+   Steam HLTB / SteamDB / KOSTEAM이 주입한 DOM을 읽어 #glanceMidCtn의 태그 열 앞에
+   우리 행('한글 여부:', '플레이타임:', '가격:')으로 다시 그린다.
    원본은 hide.css가 숨긴다. 셀렉터는 SEL 상수 한 곳.
    사양: docs/superpowers/specs/2026-11-05-steam-info-relay-design.md */
 (() => {
@@ -8,6 +8,8 @@
   if (!P) return;
   const SEL = {
     glance: '#glanceMidCtn',
+    glanceRight: '.glance_ctn_responsive_right',
+    curatorReview: '[data-featuretarget="referring-curator-review"]',
     hltbText: '#hltb-glance > div:not(.subtitle):not(.column)',
     steamdbTop: '.steamdb_prices_top',
     purchase: '#game_area_purchase .game_area_purchase_game',
@@ -28,6 +30,34 @@
     return n;
   };
 
+  // 큐레이터 링크(…?curator_clanid=) → 그 페이지 평가문의 실제 링크. href당 1회 조회, 실패 시 원래 링크.
+  const resolved = new Map();
+  function directLink(href) {
+    let u;
+    try {
+      u = new URL(href);
+    } catch {
+      return href;
+    }
+    if (u.origin !== location.origin || !u.searchParams.has('curator_clanid')) return href;
+    if (!resolved.has(href)) {
+      resolved.set(href, null);
+      fetch(href, { credentials: 'include' })
+        .then((r) => (r.ok ? r.text() : ''))
+        .then((html) => {
+          const props = new DOMParser().parseFromString(html, 'text/html')
+            .querySelector(SEL.curatorReview)?.dataset.props;
+          const url = props && P.curatorLink(props);
+          if (url) {
+            resolved.set(href, url);
+            requestAnimationFrame(sync);
+          }
+        })
+        .catch(() => {});
+    }
+    return resolved.get(href) ?? href;
+  }
+
   function readPatch() {
     const banner = document.querySelector(SEL.patch);
     if (!banner) return null;
@@ -39,10 +69,10 @@
         .filter(Boolean);
       const names = [...new Set(descs.map((d) => P.extractAuthor(d)).filter(Boolean))];
       const fallback = (a?.textContent || '').replace(/\[[^\]]*\]/g, '').trim() || '링크';
-      const text = names.length ? names.join(', ') : fallback;
+      const text = `한글 패치(${names.length ? names.join(', ') : fallback})`;
       if (a?.href && a.href !== 'about:blank') {
         const link = el('a', null, text);
-        link.href = a.href;
+        link.href = directLink(a.href);
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.title = descs.map((d) => d.replace(/\n/g, ' / ').trim()).join(' / ');
@@ -59,7 +89,9 @@
   function readHltb() {
     const val = document.querySelector(SEL.hltbText);
     if (!val) return null;
-    const parsed = P.parseHltbLines(val.innerText || val.textContent || '');
+    // 원본은 display:none이라 innerText에 <br> 줄바꿈이 없음 → 텍스트 노드를 줄 단위로 읽는다
+    const raw = [...val.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('\n');
+    const parsed = P.parseHltbLines(raw);
     if (!parsed) return null;
     const box = el('div');
     const put = (v) => {
@@ -141,11 +173,11 @@
     if (patch?.parts) {
       const v = el('div');
       patch.parts.forEach((n, i) => { if (i) v.appendChild(document.createTextNode(' | ')); v.appendChild(n); });
-      parts.push(row('한글 패치:', v));
+      parts.push(row('한글 여부:', v));
     } else if (patch?.text) {
-      parts.push(row('한글 패치:', el('div', null, patch.text)));
+      parts.push(row('한글 여부:', el('div', null, patch.text)));
     }
-    if (hltb) parts.push(row('HowLongToBeat:', hltb.node));
+    if (hltb) parts.push(row('플레이타임:', hltb.node));
     if (price) parts.push(row('가격:', price.node));
 
     const key = parts.map((r) => serialize([...r.lastChild.childNodes])).join('\u0000');
@@ -155,8 +187,14 @@
       lastKey = null;
       return;
     }
+    // 태그 열(.glance_ctn_responsive_right) 바로 앞. 왼쪽 열 안에 넣으면 HLTB 앵커(.dev_row:last-child)가 우리 행을 잡는다.
+    const right = glance.querySelector(SEL.glanceRight);
+    const before = right?.parentElement === glance ? right : null;
+    const place = () => {
+      if (relay.parentElement !== glance || relay.nextElementSibling !== before) glance.insertBefore(relay, before);
+    };
     if (key === lastKey) {
-      if (relay && relay.parentElement !== glance) glance.appendChild(relay);
+      if (relay) place();
       return;
     }
     lastKey = key;
@@ -164,7 +202,7 @@
     relay.id = 'kr-relay';
     relay.style.display = 'contents';
     relay.replaceChildren(...parts);
-    glance.appendChild(relay);
+    place();
   }
 
   new MutationObserver(() => requestAnimationFrame(sync))

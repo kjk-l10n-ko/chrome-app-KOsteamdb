@@ -4,7 +4,7 @@
 
 ## 목표
 
-`https://store.steampowered.com/app/*` 에서 세 확장이 그린 결과를 **가로채** 게임 정보 탭(`#glanceMidCtn`)에 Steam 기본 행 형식으로 재표시하고, 원래 블록은 숨긴다. 데이터를 직접 조회하지 않는다 — 세 확장이 설치·활성화된 상태가 전제.
+`https://store.steampowered.com/app/*` 에서 세 확장이 그린 결과를 **가로채** 게임 정보 탭(`#glanceMidCtn`)에 Steam 기본 행 형식으로 재표시하고, 원래 블록은 숨긴다. 데이터를 직접 조회하지 않는다 — 세 확장이 설치·활성화된 상태가 전제. 유일한 예외: KOSTEAM이 준 퀘이사존 큐레이터 링크를 실제 패치 링크로 바꾸기 위한 같은 origin 큐레이터 페이지 조회(행 1 참고).
 
 | 소스 확장 (조사 버전) | 원본 DOM | 위치 | 특성 |
 |---|---|---|---|
@@ -33,21 +33,22 @@ parse.test.mjs  node --test
 ### 동기화 루프
 - `MutationObserver(document.body, { childList: true, subtree: true, characterData: true })` → `requestAnimationFrame`으로 디바운스 → `sync()`.
 - `sync()`: 세 소스를 읽어 행 모델 `[{label, nodes}]` 생성 → 직렬화 키(텍스트+href)가 직전과 같으면 아무것도 하지 않음(자기 변경으로 인한 루프 방지).
-- 컨테이너: `div#kr-relay` (`display: contents`, `.dev_row` 아님). 매 sync마다 `#glanceMidCtn`의 마지막 자식이 아니면 끝으로 이동. HLTB 앵커 `.dev_row:last-child`는 `#kr-relay`에 매칭되지 않으므로 HLTB는 항상 실제 마지막 dev_row 뒤(우리 컨테이너 앞)에 붙고, 숨겨진다.
+- 컨테이너: `div#kr-relay` (`display: contents`, `.dev_row` 아님). 매 sync마다 `#glanceMidCtn`의 태그 열 `.glance_ctn_responsive_right` 바로 앞(태그가 맨 아래)으로 이동, 태그 열이 없으면 끝. 왼쪽 열(`.glance_ctn_responsive_left`) 안에 넣지 않는 이유: 그러면 우리 마지막 행이 HLTB 앵커 `#glanceMidCtn .dev_row:last-child`에 먼저 매칭돼 HLTB가 우리 컨테이너 안에 마운트된다. 현재 위치에선 HLTB가 실제 마지막 dev_row(배급사) 뒤에 붙고, 숨겨진다. 한계: Steam 반응형 ≤560px(두 열 float) 레이아웃에선 행 배치가 어색할 수 있음.
 - `#glanceMidCtn` 없음(연령 확인 페이지 등) → 아무것도 안 함.
 
 ### 행 형식 (표시 순서 고정)
-각 행: `<div class="dev_row"><div class="subtitle column">{라벨}</div><div style="color:#8f98a0">{값}</div></div>` (HLTB 원본과 동일, 첫 행 `margin-top: 10px`). 값은 `textContent`/`createElement`로만 구성 — `innerHTML` 미사용.
+각 행: `<div class="dev_row"><div class="subtitle column">{라벨}</div><div style="color:#8f98a0">{값}</div></div>` (HLTB 원본과 동일, 첫 행 `margin-top: 10px`). 값 안의 링크는 Steam 링크색 `#66c0f4`(hover `#fff`). 값은 `textContent`/`createElement`로만 구성 — `innerHTML` 미사용.
 
-1. **`한글 패치:`** (소스 `.kr-patch-banner`)
-   - `.kr-patch-link-item` 각각 → 링크 1개: `href` = `a.kr-patch-link-text`의 href, `target="_blank" rel="noopener noreferrer"`, 텍스트 = 이름, `title` = 설명 원문(줄바꿈은 ` / `).
+1. **`한글 여부:`** (소스 `.kr-patch-banner`)
+   - `.kr-patch-link-item` 각각 → 링크 1개: `href` = `a.kr-patch-link-text`의 href(큐레이터 링크면 아래 직접 링크로 교체), `target="_blank" rel="noopener noreferrer"`, 텍스트 = `한글 패치({이름})`, `title` = 설명 원문(줄바꿈은 ` / `).
+   - 큐레이터 링크(같은 origin, `curator_clanid` 파라미터 有): href당 1회 `fetch`(쿠키 포함) → `DOMParser`로 `[data-featuretarget="referring-curator-review"]`의 `data-props` JSON → `curatorLink`: `recommendation.link_url`, 없으면 `blurb`의 첫 `http(s)://` URL(끝 `),.` 제거). http(s)가 아니거나 없음/실패 → 큐레이터 링크 유지. 결과는 메모리 캐시, 확정 시 재동기화.
    - 이름 = 그 아이템의 `.kr-patch-link-description`들에 `extractAuthor` 적용 → 결과 중복 제거 후 `, ` 결합. 결과 없음 → 사이트명(`.kr-patch-link-text` 텍스트에서 `[ ]` 제거, 예: `한패넷`).
    - 링크 구분자 ` | `.
    - 링크 아이템 0개 → `.kr-patch-type-label` 텍스트(예: `공식 한국어`, `한국어 없음`, `정보 조회 중`).
    - 배너 없음 → 행 생략.
-2. **`HowLongToBeat:`** (소스 `#hltb-glance`의 두 번째 `div` 텍스트 줄)
+2. **`플레이타임:`** (소스 `#hltb-glance`의 두 번째 `div`의 **텍스트 노드들**을 `\n`으로 결합 — 원본이 `display:none`이라 `innerText`는 `<br>` 줄바꿈을 잃음)
    - `translateHltb(line)`: 접두어 `Main Story`→`메인 스토리`, `Main + Sides`→`메인+서브`, `Completionist`→`완전 정복`; 단위 `Hours`/`Hour`→`시간`, `Minutes`/`Minute`→`분`(숫자와 붙여 씀: `25½시간`); `—` 그대로.
-   - 줄 구분 `<br>` 유지(원본처럼 3줄). 없음 → 행 생략.
+   - 줄 구분 `<br>`(3줄). 없음 → 행 생략.
 3. **`가격:`**
    - 현재가: `#game_area_purchase .game_area_purchase_game` 첫 요소에서 `.discount_final_price` 있으면 그 값 + `.discount_pct`(예 `-50%`), 없으면 `.game_purchase_price`. 할인 없음 → 괄호 생략.
    - 최저가: `parseSteamdbTop(bTexts)` — `.steamdb_prices_top b` 텍스트 배열. `b[0]` = 가격; `b[1]`이 `/^-\d+%$/`면 할인율, 아니면(2년 최저가 변형) 할인율 생략. `b[0]`이 `…`이거나 요소 없음 → 최저가 없음.

@@ -46,6 +46,28 @@ const parseSteamdbTop = (bTexts) => {
   return { price, discount };
 };
 
-const api = { extractAuthor, translateHltb, parseHltbLines, parseSteamdbTop };
+const httpUrl = (u) => {
+  try {
+    const x = new URL(u);
+    return x.protocol === 'http:' || x.protocol === 'https:' ? x.href : null;
+  } catch {
+    return null;
+  }
+};
+
+// 큐레이터 평가 data-props JSON → 실제 패치 링크 (link_url 우선, 없으면 blurb 첫 URL)
+const curatorLink = (propsJson) => {
+  let r;
+  try {
+    r = JSON.parse(propsJson)?.recommendation;
+  } catch {
+    return null;
+  }
+  if (!r) return null;
+  const inBlurb = String(r.blurb ?? '').match(/https?:\/\/[^\s<>"']+/)?.[0]?.replace(/[),.]+$/, '');
+  return httpUrl(r.link_url) ?? httpUrl(inBlurb);
+};
+
+const api = { extractAuthor, translateHltb, parseHltbLines, parseSteamdbTop, curatorLink };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 else globalThis.RelayParse = api;
