@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import p from './parse.js';
-const { extractAuthor, translateHltb, parseHltbLines, parseSteamdbTop, curatorLink } = p.default ?? p;
+const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate } = p.default ?? p;
 
 test('extractAuthor: 님-패턴', () => {
   assert.equal(extractAuthor('Zvezda님 제작'), 'Zvezda');
@@ -23,14 +23,14 @@ test('extractAuthor: 제작자 없는 문구 → null', () => {
   assert.equal(extractAuthor('스토브 인디 한국어화'), null);
   assert.equal(extractAuthor('실제로는 한글 지원'), null);
 });
-test('translateHltb: 접두어/단위', () => {
-  assert.equal(translateHltb('Main Story: 25½ Hours'), '메인 스토리: 25½시간');
-  assert.equal(translateHltb('Main + Sides: 30 Minutes'), '메인+서브: 30분');
-  assert.equal(translateHltb('Completionist: 1 Hour'), '완전 정복: 1시간');
-  assert.equal(translateHltb('Main Story: —'), '메인 스토리: —');
-});
-test('translateHltb: 알 수 없는 접두어 원문 유지', () => {
-  assert.equal(translateHltb('Coop: 12 Hours'), 'Coop: 12시간');
+test('hltbHours: ½→.5, h 단위, 분→소수 시간', () => {
+  assert.equal(hltbHours('25½ Hours'), '25.5 h');
+  assert.equal(hltbHours('1 Hour'), '1 h');
+  assert.equal(hltbHours('½ Hour'), '0.5 h');
+  assert.equal(hltbHours('30 Minutes'), '0.5 h');
+  assert.equal(hltbHours('45 Minutes'), '0.8 h');
+  assert.equal(hltbHours('1 Minute'), '0.1 h'); // 0으로 반올림되지 않게 최소 0.1
+  assert.equal(hltbHours('—'), '—');
 });
 test('parseSteamdbTop', () => {
   assert.deepEqual(parseSteamdbTop(['₩ 11,000', '-75%']), { price: '₩ 11,000', discount: '-75%' });
@@ -39,12 +39,21 @@ test('parseSteamdbTop', () => {
   assert.equal(parseSteamdbTop(['…']), null);
   assert.equal(parseSteamdbTop([]), null);
 });
-test('parseHltbLines', () => {
+test('parseHltbLines: 고정 순서 [{name, value}], 없는 항목 생략', () => {
   const raw = 'Main Story: 25½ Hours\nMain + Sides: 40 Hours\nCompletionist: 80 Hours';
-  assert.deepEqual(parseHltbLines(raw), {
-    main: '메인 스토리: 25½시간', sides: '메인+서브: 40시간', completionist: '완전 정복: 80시간',
-  });
+  assert.deepEqual(parseHltbLines(raw), [
+    { name: '메인', value: '25.5 h' }, { name: '메인+서브', value: '40 h' }, { name: '완전 정복', value: '80 h' },
+  ]);
+  assert.deepEqual(parseHltbLines('Completionist: —\nMain Story: 3 Hours'), [
+    { name: '메인', value: '3 h' }, { name: '완전 정복', value: '—' },
+  ]);
   assert.equal(parseHltbLines(''), null);
+});
+test('koDate: SteamDB ko 날짜 → 년 월 일, 나머지 보존, 멱등', () => {
+  assert.equal(koDate('2025. 3. 14. '), '2025년 3월 14일 ');
+  assert.equal(koDate('2025. 11. 5. (8개월 전)'), '2025년 11월 5일 (8개월 전)');
+  assert.equal(koDate('2025년 3월 14일 '), '2025년 3월 14일 ');
+  assert.equal(koDate('Mar 14, 2025'), 'Mar 14, 2025');
 });
 
 const props = (link_url, blurb) => JSON.stringify({ recommendation: { link_url, blurb } });

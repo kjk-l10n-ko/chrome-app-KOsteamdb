@@ -18,6 +18,8 @@
     price: '.game_purchase_price',
     patch: '.kr-patch-banner',
     patchLabel: '.kr-patch-type-label',
+    patchOfficial: '.official-steam, .official-with-user', // 공식 한국어 / 공식(추가정보 존재)
+    lastUpdate: '.steamdb_last_update a.date, #appHeaderGridContainer a[href$="/patchnotes/"]',
     patchItem: '.kr-patch-link-item',
     patchLink: '.kr-patch-link-text',
     patchDesc: '.kr-patch-link-description',
@@ -61,6 +63,7 @@
   function readPatch() {
     const banner = document.querySelector(SEL.patch);
     if (!banner) return null;
+    if (banner.querySelector(SEL.patchLabel)?.matches(SEL.patchOfficial)) return { official: true };
     const parts = [];
     for (const item of banner.querySelectorAll(SEL.patchItem)) {
       const a = item.querySelector(SEL.patchLink);
@@ -93,16 +96,9 @@
     const raw = [...val.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('\n');
     const parsed = P.parseHltbLines(raw);
     if (!parsed) return null;
-    const box = el('div');
-    const put = (v) => {
-      if (!v) return;
-      if (box.childNodes.length) box.appendChild(el('br'));
-      box.appendChild(document.createTextNode(v));
-    };
-    put(parsed.main);
-    put(parsed.sides);
-    put(parsed.completionist);
-    return box.childNodes.length ? { node: box } : null;
+    const box = el('div', 'kr-relay-hltb'); // 이름/값 2열 그리드(hide.css) — 탭 정렬
+    for (const { name, value } of parsed) box.append(el('span', null, name), el('span', null, value));
+    return { node: box };
   }
 
   function readPrice() {
@@ -157,7 +153,18 @@
   let relay = null;
   let lastKey = null;
 
+  // SteamDB '최근 업데이트' 날짜를 제자리에서 'YYYY년 M월 D일'로. 멱등이라 관찰자 루프 없음.
+  function fixDates() {
+    for (const a of document.querySelectorAll(SEL.lastUpdate)) {
+      const t = a.firstChild;
+      if (t?.nodeType !== 3) continue;
+      const k = P.koDate(t.textContent);
+      if (k !== t.textContent) t.textContent = k;
+    }
+  }
+
   function sync() {
+    fixDates();
     const glance = document.querySelector(SEL.glance);
     if (!glance) {
       relay?.remove();
@@ -170,7 +177,11 @@
     const price = readPrice();
 
     const parts = [];
-    if (patch?.parts) {
+    if (patch?.official) {
+      const v = el('div');
+      v.appendChild(el('span', 'kr-relay-official', '공식 한글화'));
+      parts.push(row('한글 여부:', v));
+    } else if (patch?.parts) {
       const v = el('div');
       patch.parts.forEach((n, i) => { if (i) v.appendChild(document.createTextNode(' | ')); v.appendChild(n); });
       parts.push(row('한글 여부:', v));

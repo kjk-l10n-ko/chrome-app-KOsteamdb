@@ -12,30 +12,31 @@ const extractAuthor = (desc) => {
   return m ? m[1] : null;
 };
 
-const HLTB_PREFIX = [
-  [/^Main Story/, '메인 스토리'],
-  [/^Main \+ Sides/, '메인+서브'],
-  [/^Completionist/, '완전 정복'],
-];
+const HLTB_ITEMS = [['Main Story', '메인'], ['Main + Sides', '메인+서브'], ['Completionist', '완전 정복']];
 
-const translateHltb = (line) => {
-  const unit = line.replace(/\s*Hours?/, '시간').replace(/\s*Minutes?/, '분');
-  const p = HLTB_PREFIX.find(([re]) => re.test(unit));
-  return p ? unit.replace(p[0], p[1]) : unit;
+// '25½ Hours' → '25.5 h', '30 Minutes' → '0.5 h'(소수 첫째 자리, 최소 0.1), 그 외('—')는 그대로
+const hltbHours = (text) => {
+  const s = text.trim();
+  const m = s.match(/^(\d*)(½?)\s*(Hours?|Minutes?)$/);
+  if (!m || (!m[1] && !m[2])) return s;
+  let h = Number(m[1] || 0) + (m[2] ? 0.5 : 0);
+  if (m[3].startsWith('Minute')) h = Math.max(0.1, Math.round(h / 6) / 10);
+  return `${h} h`;
 };
 
 const parseHltbLines = (raw) => {
   if (typeof raw !== 'string') return null;
-  const lines = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
-  if (!lines.length) return null;
-  const out = { main: null, sides: null, completionist: null };
-  for (const l of lines) {
-    if (l.startsWith('Main Story')) out.main = translateHltb(l);
-    else if (l.startsWith('Main + Sides')) out.sides = translateHltb(l);
-    else if (l.startsWith('Completionist')) out.completionist = translateHltb(l);
+  const lines = raw.split(/\n+/).map((s) => s.trim());
+  const out = [];
+  for (const [en, ko] of HLTB_ITEMS) {
+    const line = lines.find((l) => l.startsWith(`${en}:`));
+    if (line) out.push({ name: ko, value: hltbHours(line.slice(en.length + 1)) });
   }
-  return Object.values(out).some((v) => v) ? out : null;
+  return out.length ? out : null;
 };
+
+// SteamDB ko 'dateStyle: medium' 날짜 '2025. 3. 14.' → '2025년 3월 14일'
+const koDate = (text) => text.replace(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\./, '$1년 $2월 $3일');
 
 const parseSteamdbTop = (bTexts) => {
   if (!Array.isArray(bTexts)) return null;
@@ -68,6 +69,6 @@ const curatorLink = (propsJson) => {
   return httpUrl(r.link_url) ?? httpUrl(inBlurb);
 };
 
-const api = { extractAuthor, translateHltb, parseHltbLines, parseSteamdbTop, curatorLink };
+const api = { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 else globalThis.RelayParse = api;
