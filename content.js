@@ -131,12 +131,23 @@
     const appid = (location.pathname.match(/\/app\/(\d+)/) ?? [])[1];
     if (!hasPrice && !(low && appid)) return null;
     const box = el('div', 'kr-relay-grid');
-    if (hasPrice) box.append(el('span', null, '현재'), el('span', null, disc ? `${current}(${disc})` : current));
-    if (low && appid) {
-      const pct = low.discount ?? (base ? P.pctOff(low.price, base) : null);
-      const a = el('a', null, pct && pct !== '0%' ? `${low.price}(${pct})` : low.price);
-      a.href = `https://steamdb.info/app/${appid}/`;
-      box.append(el('span', null, '최저'), a);
+    const curText = hasPrice ? (disc ? `${current}(${disc})` : current) : null;
+    const lowUrl = low && appid ? `https://steamdb.info/app/${appid}/` : null;
+    if (hasPrice && lowUrl && P.samePrice(current, low.price)) {
+      // 현재가가 곧 최저가: 한 줄 '현재 ₩ 11,000(-50%)(최저)', (최저)는 SteamDB 링크
+      const a = el('a', null, '(최저)');
+      a.href = lowUrl;
+      const v = el('span', null, curText);
+      v.append(a);
+      box.append(el('span', null, '현재'), v);
+    } else {
+      if (hasPrice) box.append(el('span', null, '현재'), el('span', null, curText));
+      if (lowUrl) {
+        const pct = low.discount ?? (base ? P.pctOff(low.price, base) : null);
+        const a = el('a', null, pct && pct !== '0%' ? `${low.price}(${pct})` : low.price);
+        a.href = lowUrl;
+        box.append(el('span', null, '최저'), a);
+      }
     }
     return { node: box };
   }

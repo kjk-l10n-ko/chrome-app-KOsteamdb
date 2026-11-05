@@ -54,6 +54,7 @@ parse.test.mjs  node --test
    - 표시: 값 칸에 이름/값 2열 그리드(`.kr-relay-grid`, `max-content` 2열, 간격 16px) — 탭 정렬된 3줄.
 3. **`가격:`**
    - 표시는 이름/값 2열 그리드 2줄: `현재  ₩ 21,000(-50%)` / `최저  ₩ 11,000(-75%)`(최저 값이 SteamDB 앱 페이지 링크). 한쪽만 있으면 그 줄만. 현재가 `0`·숫자 없음(무료) 이고 최저도 없으면 행 생략.
+   - 현재가 == 최저가(숫자만 비교, `samePrice`)이면 두 줄 대신 한 줄 `현재  ₩ 11,000(-50%)(최저)` — `(최저)`는 SteamDB 앱 페이지 링크.
    - 현재가: `#game_area_purchase .game_area_purchase_game` 첫 요소에서 `.discount_final_price` + `.discount_pct`, 없으면 `.game_purchase_price`. **할인율 괄호는 할인이 있을 때만**: 할인 없음(0%) → 괄호 생략.
    - 최저가: `parseSteamdbTop(bTexts)` — `.steamdb_prices_top b` 텍스트 배열. `b[0]` = 가격(4자리 이상 정수에 천 단위 쉼표 부여: `₩ 11000`→`₩ 11,000`); `b[1]`이 `/^-\d+%$/`면 그 할인율. 없으면(정가 최저/2년 최저 변형) 구매 박스 정가(`.discount_original_price`, 할인 없으면 현재가) 대비 `pctOff` 계산 — 결과가 `0%`(정가 이상)이거나 정가를 못 구하면 괄호 생략. `b[0]`이 `…`이거나 요소 없음 → 최저 줄 없음.
 

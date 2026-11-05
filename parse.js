@@ -42,13 +42,14 @@ const koDate = (text) => text.replace(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\./, '
 const commas = (s) => s.replace(/\d{4,}/g, (d) => d.replace(/\B(?=(\d{3})+$)/g, ','));
 
 // 가격 문자열 둘의 할인율 '-50%'. 정가 이하가 아니면 '0%', 숫자 없으면 null. 숫자만 비교(ponytail: 소수 자릿수가 같은 통화 쌍 전제)
+const priceNum = (s) => Number(s.replace(/\D/g, ''));
 const pctOff = (price, base) => {
-  const n = (s) => Number(s.replace(/\D/g, ''));
-  const p = n(price);
-  const b = n(base);
+  const p = priceNum(price);
+  const b = priceNum(base);
   if (!p || !b) return null;
   return p >= b ? '0%' : `-${Math.round((1 - p / b) * 100)}%`;
 };
+const samePrice = (a, b) => !!priceNum(a) && priceNum(a) === priceNum(b);
 
 const parseSteamdbTop = (bTexts) => {
   if (!Array.isArray(bTexts)) return null;
@@ -81,6 +82,6 @@ const curatorLink = (propsJson) => {
   return httpUrl(r.link_url) ?? httpUrl(inBlurb);
 };
 
-const api = { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff };
+const api = { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff, samePrice };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 else globalThis.RelayParse = api;
