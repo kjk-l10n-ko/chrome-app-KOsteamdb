@@ -103,8 +103,8 @@
     return { node: box };
   }
 
-  // 현재가/최저가 모두 항상 (할인율) 표기: 현재가는 .discount_pct, 없으면 0%.
-  // 최저가는 SteamDB 값, 없으면(정가 최저/2년 최저 변형) 구매 박스의 정가 대비 계산.
+  // 할인율 괄호는 할인이 있을 때만: 현재가는 .discount_pct, 최저가는 SteamDB 값 없으면(정가 최저/2년 최저 변형)
+  // 구매 박스의 정가 대비 계산. 0%(정가)는 표기하지 않는다.
   function readPrice() {
     const purchase = document.querySelector(SEL.purchase);
     let current = null;
@@ -131,10 +131,10 @@
     const appid = (location.pathname.match(/\/app\/(\d+)/) ?? [])[1];
     if (!hasPrice && !(low && appid)) return null;
     const box = el('div', 'kr-relay-grid');
-    if (hasPrice) box.append(el('span', null, '현재'), el('span', null, `${current}(${disc ?? '0%'})`));
+    if (hasPrice) box.append(el('span', null, '현재'), el('span', null, disc ? `${current}(${disc})` : current));
     if (low && appid) {
       const pct = low.discount ?? (base ? P.pctOff(low.price, base) : null);
-      const a = el('a', null, pct ? `${low.price}(${pct})` : low.price);
+      const a = el('a', null, pct && pct !== '0%' ? `${low.price}(${pct})` : low.price);
       a.href = `https://steamdb.info/app/${appid}/`;
       box.append(el('span', null, '최저'), a);
     }
