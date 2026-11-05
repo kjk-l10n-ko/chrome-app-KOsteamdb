@@ -112,6 +112,7 @@
   const row = (label, node) => {
     const r = el('div', 'dev_row');
     r.appendChild(el('div', 'subtitle column', label));
+    node.style.color = '#8f98a0';
     r.appendChild(node);
     return r;
   };
