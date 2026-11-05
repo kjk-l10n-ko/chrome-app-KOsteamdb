@@ -16,6 +16,7 @@
     finalPrice: '.discount_final_price',
     discPct: '.discount_pct',
     price: '.game_purchase_price',
+    origPrice: '.discount_original_price',
     patch: '.kr-patch-banner',
     patchLabel: '.kr-patch-type-label',
     patchOfficial: '.official-steam, .official-with-user', // 공식 한국어 / 공식(추가정보 존재)
@@ -63,7 +64,7 @@
   function readPatch() {
     const banner = document.querySelector(SEL.patch);
     if (!banner) return null;
-    if (banner.querySelector(SEL.patchLabel)?.matches(SEL.patchOfficial)) return { official: true };
+    const official = !!banner.querySelector(SEL.patchLabel)?.matches(SEL.patchOfficial);
     const parts = [];
     for (const item of banner.querySelectorAll(SEL.patchItem)) {
       const a = item.querySelector(SEL.patchLink);
@@ -71,7 +72,7 @@
         .map((d) => d.textContent)
         .filter(Boolean);
       const names = [...new Set(descs.map((d) => P.extractAuthor(d)).filter(Boolean))];
-      const fallback = (a?.textContent || '').replace(/\[[^\]]*\]/g, '').trim() || '링크';
+      const fallback = (a?.textContent || '').replace(/[[\]]/g, '').trim() || '링크';
       const text = `한글 패치(${names.length ? names.join(', ') : fallback})`;
       if (a?.href && a.href !== 'about:blank') {
         const link = el('a', null, text);
@@ -84,7 +85,7 @@
         parts.push(el('span', null, text));
       }
     }
-    if (parts.length) return { parts };
+    if (parts.length || official) return { official, parts };
     const label = banner.querySelector(SEL.patchLabel);
     return label?.textContent.trim() ? { text: label.textContent.trim() } : null;
   }
@@ -96,22 +97,27 @@
     const raw = [...val.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('\n');
     const parsed = P.parseHltbLines(raw);
     if (!parsed) return null;
-    const box = el('div', 'kr-relay-hltb'); // 이름/값 2열 그리드(hide.css) — 탭 정렬
+    const box = el('div', 'kr-relay-grid'); // 이름/값 2열 그리드(hide.css) — 탭 정렬
     for (const { name, value } of parsed) box.append(el('span', null, name), el('span', null, value));
     return { node: box };
   }
 
+  // 현재가/최저가 모두 항상 (할인율) 표기: 현재가는 .discount_pct, 없으면 0%.
+  // 최저가는 SteamDB 값, 없으면(정가 최저/2년 최저 변형) 구매 박스의 정가 대비 계산.
   function readPrice() {
     const purchase = document.querySelector(SEL.purchase);
     let current = null;
     let disc = null;
+    let base = null;
     if (purchase) {
       const fin = purchase.querySelector(SEL.finalPrice);
       if (fin) {
         current = fin.textContent.trim() || null;
         disc = purchase.querySelector(SEL.discPct)?.textContent.trim() || null;
+        base = purchase.querySelector(SEL.origPrice)?.textContent.trim() || null;
       } else {
         current = purchase.querySelector(SEL.price)?.textContent.trim() || null;
+        base = current;
       }
     }
     // 숫자가 없는 가격 문구(무료로 플레이하기/Free to Play)나 0원은 현재가 없음
@@ -121,19 +127,17 @@
     const bs = [...(document.querySelector(SEL.steamdbTop)?.querySelectorAll('b') ?? [])]
       .map((b) => b.textContent);
     const low = P.parseSteamdbTop(bs);
-    if (!hasPrice && !low) return null;
-    const box = el('div');
-    if (hasPrice) box.appendChild(document.createTextNode(current + (disc ? `(${disc})` : '')));
-    if (low) {
-      const appid = (location.pathname.match(/\/app\/(\d+)/) ?? [])[1];
-      if (appid) {
-        if (box.childNodes.length) box.appendChild(document.createTextNode(' | '));
-        const a = el('a', null, `최저 ${low.price}${low.discount ? `(${low.discount})` : ''}`);
-        a.href = `https://steamdb.info/app/${appid}/`;
-        box.appendChild(a);
-      }
+    const appid = (location.pathname.match(/\/app\/(\d+)/) ?? [])[1];
+    if (!hasPrice && !(low && appid)) return null;
+    const box = el('div', 'kr-relay-grid');
+    if (hasPrice) box.append(el('span', null, '현재'), el('span', null, `${current}(${disc ?? '0%'})`));
+    if (low && appid) {
+      const pct = low.discount ?? (base ? P.pctOff(low.price, base) : null);
+      const a = el('a', null, pct ? `${low.price}(${pct})` : low.price);
+      a.href = `https://steamdb.info/app/${appid}/`;
+      box.append(el('span', null, '최저'), a);
     }
-    return box.childNodes.length ? { node: box } : null;
+    return { node: box };
   }
 
   const row = (label, node) => {
@@ -177,13 +181,10 @@
     const price = readPrice();
 
     const parts = [];
-    if (patch?.official) {
+    if (patch?.parts) {
+      const items = patch.official ? [el('span', 'kr-relay-official', '공식 한글화'), ...patch.parts] : patch.parts;
       const v = el('div');
-      v.appendChild(el('span', 'kr-relay-official', '공식 한글화'));
-      parts.push(row('한글 여부:', v));
-    } else if (patch?.parts) {
-      const v = el('div');
-      patch.parts.forEach((n, i) => { if (i) v.appendChild(document.createTextNode(' | ')); v.appendChild(n); });
+      items.forEach((n, i) => { if (i) v.appendChild(document.createTextNode(' | ')); v.appendChild(n); });
       parts.push(row('한글 여부:', v));
     } else if (patch?.text) {
       parts.push(row('한글 여부:', el('div', null, patch.text)));

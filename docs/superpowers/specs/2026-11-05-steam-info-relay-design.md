@@ -40,21 +40,21 @@ parse.test.mjs  node --test
 각 행: `<div class="dev_row"><div class="subtitle column">{라벨}</div><div style="color:#8f98a0">{값}</div></div>` (HLTB 원본과 동일, 첫 행 `margin-top: 10px`). 값 안의 링크는 Steam 링크색 `#66c0f4`(hover `#fff`). 값은 `textContent`/`createElement`로만 구성 — `innerHTML` 미사용.
 
 1. **`한글 여부:`** (소스 `.kr-patch-banner`)
-   - 유형 라벨이 `.official-steam`(`공식 한국어`) 또는 `.official-with-user`(`공식(추가정보 존재)`) → 링크 없이 녹색(`#a4d007`) `공식 한글화`만. `공식지원 추정`·다이렉트 게임즈·스토브는 아래 규칙 그대로.
+   - 유형 라벨이 `.official-steam`(`공식 한국어`) 또는 `.official-with-user`(`공식(추가정보 존재)`) → 맨 앞에 녹색(`#6c3` = SteamDB 평가 `.steamdb_rating_good`) `공식 한글화`, 패치 링크 아이템이 있으면 ` | `로 이어서 표시(`공식 한글화 | 한글 패치(Kiss)`). `공식지원 추정`·다이렉트 게임즈·스토브는 아래 규칙 그대로.
    - `.kr-patch-link-item` 각각 → 링크 1개: `href` = `a.kr-patch-link-text`의 href(큐레이터 링크면 아래 직접 링크로 교체), `target="_blank" rel="noopener noreferrer"`, 텍스트 = `한글 패치({이름})`, `title` = 설명 원문(줄바꿈은 ` / `).
    - 큐레이터 링크(같은 origin, `curator_clanid` 파라미터 有): href당 1회 `fetch`(쿠키 포함) → `DOMParser`로 `[data-featuretarget="referring-curator-review"]`의 `data-props` JSON → `curatorLink`: `recommendation.link_url`, 없으면 `blurb`의 첫 `http(s)://` URL(끝 `),.` 제거). http(s)가 아니거나 없음/실패 → 큐레이터 링크 유지. 결과는 메모리 캐시, 확정 시 재동기화.
-   - 이름 = 그 아이템의 `.kr-patch-link-description`들에 `extractAuthor` 적용 → 결과 중복 제거 후 `, ` 결합. 결과 없음 → 사이트명(`.kr-patch-link-text` 텍스트에서 `[ ]` 제거, 예: `한패넷`).
+   - 이름 = 그 아이템의 `.kr-patch-link-description`들에 `extractAuthor` 적용 → 결과 중복 제거 후 `, ` 결합. 결과 없음 → 사이트명(`.kr-patch-link-text` 텍스트에서 `[`·`]` 문자만 제거, 예: `[ 한패넷 ]`→`한패넷`).
    - 링크 구분자 ` | `.
    - 링크 아이템 0개 → `.kr-patch-type-label` 텍스트(예: `공식 한국어`, `한국어 없음`, `정보 조회 중`).
    - 배너 없음 → 행 생략.
 2. **`플레이타임:`** (소스 `#hltb-glance`의 두 번째 `div`의 **텍스트 노드들**을 `\n`으로 결합 — 원본이 `display:none`이라 `innerText`는 `<br>` 줄바꿈을 잃음)
    - `parseHltbLines(raw)` → 고정 순서 `[{name, value}]`: `Main Story`→`메인`, `Main + Sides`→`메인+서브`, `Completionist`→`완전 정복`; 없는 항목 생략, 전부 없음 → 행 생략.
-   - `hltbHours(text)`: `25½ Hours`→`25.5 h`, `1 Hour`→`1 h`, 분은 소수 시간(`30 Minutes`→`0.5 h`, 소수 첫째 자리, 최소 `0.1 h`); `—` 그대로.
-   - 표시: 값 칸에 이름/값 2열 그리드(`.kr-relay-hltb`, `max-content` 2열, 간격 16px) — 탭 정렬된 3줄.
+   - `hltbHours(text)`: `25½ Hours`→`25.5시간`, `1 Hour`→`1시간`(숫자와 붙여씀), 분은 소수 시간(`30 Minutes`→`0.5시간`, 소수 첫째 자리, 최소 `0.1시간`); `—` 그대로.
+   - 표시: 값 칸에 이름/값 2열 그리드(`.kr-relay-grid`, `max-content` 2열, 간격 16px) — 탭 정렬된 3줄.
 3. **`가격:`**
-   - 현재가: `#game_area_purchase .game_area_purchase_game` 첫 요소에서 `.discount_final_price` 있으면 그 값 + `.discount_pct`(예 `-50%`), 없으면 `.game_purchase_price`. 할인 없음 → 괄호 생략.
-   - 최저가: `parseSteamdbTop(bTexts)` — `.steamdb_prices_top b` 텍스트 배열. `b[0]` = 가격; `b[1]`이 `/^-\d+%$/`면 할인율, 아니면(2년 최저가 변형) 할인율 생략. `b[0]`이 `…`이거나 요소 없음 → 최저가 없음.
-   - 출력: `현재가(-50%) | 최저가(-75%)`; 한쪽만 있으면 그쪽만(`최저가` 쪽은 `최저 ` 접두: `₩ 22,000(-50%) | 최저 ₩ 11,000(-75%)`). 현재가 `0` 또는 소수 가격 없음(무료) → 행 생략. 둘 다 없으면 행 생략.
+   - 표시는 이름/값 2열 그리드 2줄: `현재  ₩ 21,000(-50%)` / `최저  ₩ 11,000(-75%)`(최저 값이 SteamDB 앱 페이지 링크). 한쪽만 있으면 그 줄만. 현재가 `0`·숫자 없음(무료) 이고 최저도 없으면 행 생략.
+   - 현재가: `#game_area_purchase .game_area_purchase_game` 첫 요소에서 `.discount_final_price` + `.discount_pct`, 없으면 `.game_purchase_price`. **할인율 괄호는 항상 표기**: 할인 없음 → `(0%)`.
+   - 최저가: `parseSteamdbTop(bTexts)` — `.steamdb_prices_top b` 텍스트 배열. `b[0]` = 가격(4자리 이상 정수에 천 단위 쉼표 부여: `₩ 11000`→`₩ 11,000`); `b[1]`이 `/^-\d+%$/`면 그 할인율. 없으면(정가 최저/2년 최저 변형) 구매 박스 정가(`.discount_original_price`, 할인 없으면 현재가) 대비 `pctOff` 계산(정가 이상이면 `0%`, 정가를 못 구하면 괄호 생략). `b[0]`이 `…`이거나 요소 없음 → 최저 줄 없음.
 
 ### `extractAuthor(desc)` (parse.js)
 순서대로 첫 매치:

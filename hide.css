@@ -2,5 +2,5 @@
 #kr-relay > .dev_row { margin-top: 10px; }
 #kr-relay a { color: #66c0f4; }
 #kr-relay a:hover { color: #ffffff; }
-#kr-relay .kr-relay-official { color: #a4d007; }
-#kr-relay .kr-relay-hltb { display: grid; grid-template-columns: max-content max-content; column-gap: 16px; }
+#kr-relay .kr-relay-official { color: #6c3; } /* SteamDB .steamdb_rating_good */
+#kr-relay .kr-relay-grid { display: grid; grid-template-columns: max-content max-content; column-gap: 16px; }

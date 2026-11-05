@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import p from './parse.js';
-const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate } = p.default ?? p;
+const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff } = p.default ?? p;
 
 test('extractAuthor: 님-패턴', () => {
   assert.equal(extractAuthor('Zvezda님 제작'), 'Zvezda');
@@ -23,16 +23,31 @@ test('extractAuthor: 제작자 없는 문구 → null', () => {
   assert.equal(extractAuthor('스토브 인디 한국어화'), null);
   assert.equal(extractAuthor('실제로는 한글 지원'), null);
 });
-test('hltbHours: ½→.5, h 단위, 분→소수 시간', () => {
-  assert.equal(hltbHours('25½ Hours'), '25.5 h');
-  assert.equal(hltbHours('1 Hour'), '1 h');
-  assert.equal(hltbHours('½ Hour'), '0.5 h');
-  assert.equal(hltbHours('30 Minutes'), '0.5 h');
-  assert.equal(hltbHours('45 Minutes'), '0.8 h');
-  assert.equal(hltbHours('1 Minute'), '0.1 h'); // 0으로 반올림되지 않게 최소 0.1
+test('hltbHours: ½→.5, 시간 붙여쓰기, 분→소수 시간', () => {
+  assert.equal(hltbHours('25½ Hours'), '25.5시간');
+  assert.equal(hltbHours('1 Hour'), '1시간');
+  assert.equal(hltbHours('½ Hour'), '0.5시간');
+  assert.equal(hltbHours('30 Minutes'), '0.5시간');
+  assert.equal(hltbHours('45 Minutes'), '0.8시간');
+  assert.equal(hltbHours('1 Minute'), '0.1시간'); // 0으로 반올림되지 않게 최소 0.1
   assert.equal(hltbHours('—'), '—');
 });
-test('parseSteamdbTop', () => {
+test('commas: 4자리 이상 정수에 천 단위 쉼표, 이미 있으면 그대로', () => {
+  assert.equal(commas('₩ 11000'), '₩ 11,000');
+  assert.equal(commas('₩ 1234567'), '₩ 1,234,567');
+  assert.equal(commas('₩ 11,000'), '₩ 11,000');
+  assert.equal(commas('₩ 990'), '₩ 990');
+  assert.equal(commas('$ 12.99'), '$ 12.99');
+});
+test('pctOff: 가격 문자열 둘의 할인율, 정가 이상이면 0%', () => {
+  assert.equal(pctOff('₩ 11,000', '₩ 22,000'), '-50%');
+  assert.equal(pctOff('₩ 5,500', '₩ 22,000'), '-75%');
+  assert.equal(pctOff('₩ 22,000', '₩ 22,000'), '0%');
+  assert.equal(pctOff('₩ 30,000', '₩ 22,000'), '0%');
+  assert.equal(pctOff('₩ 11,000', '무료'), null);
+});
+test('parseSteamdbTop: 가격에 쉼표 부여', () => {
+  assert.deepEqual(parseSteamdbTop(['₩ 11000', '-75%']), { price: '₩ 11,000', discount: '-75%' });
   assert.deepEqual(parseSteamdbTop(['₩ 11,000', '-75%']), { price: '₩ 11,000', discount: '-75%' });
   // 2년-최저가 변형: b[1]은 가격(퍼센트 아님)
   assert.deepEqual(parseSteamdbTop(['₩ 11,000', '₩ 22,000']), { price: '₩ 11,000', discount: null });
@@ -42,10 +57,10 @@ test('parseSteamdbTop', () => {
 test('parseHltbLines: 고정 순서 [{name, value}], 없는 항목 생략', () => {
   const raw = 'Main Story: 25½ Hours\nMain + Sides: 40 Hours\nCompletionist: 80 Hours';
   assert.deepEqual(parseHltbLines(raw), [
-    { name: '메인', value: '25.5 h' }, { name: '메인+서브', value: '40 h' }, { name: '완전 정복', value: '80 h' },
+    { name: '메인', value: '25.5시간' }, { name: '메인+서브', value: '40시간' }, { name: '완전 정복', value: '80시간' },
   ]);
   assert.deepEqual(parseHltbLines('Completionist: —\nMain Story: 3 Hours'), [
-    { name: '메인', value: '3 h' }, { name: '완전 정복', value: '—' },
+    { name: '메인', value: '3시간' }, { name: '완전 정복', value: '—' },
   ]);
   assert.equal(parseHltbLines(''), null);
 });
