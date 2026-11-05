@@ -8,7 +8,6 @@
   if (!P) return;
   const SEL = {
     glance: '#glanceMidCtn',
-    hltb: '#hltb-glance',
     hltbText: '#hltb-glance > div:not(.subtitle):not(.column)',
     steamdbTop: '.steamdb_prices_top',
     purchase: '#game_area_purchase .game_area_purchase_game',
@@ -128,6 +127,12 @@
 
   function sync() {
     const glance = document.querySelector(SEL.glance);
+    if (!glance) {
+      relay?.remove();
+      relay = null;
+      lastKey = null;
+      return;
+    }
     const patch = readPatch();
     const hltb = readHltb();
     const price = readPrice();
