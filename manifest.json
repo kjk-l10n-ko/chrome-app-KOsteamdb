@@ -3,6 +3,8 @@
   "name": "Steam Info Relay",
   "version": "0.1.0",
   "description": "Re-renders Steam HLTB / SteamDB lowest price / KOSTEAM patch info as glance rows.",
+  "host_permissions": ["https://hanpe.net/*"],
+  "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
       "matches": ["https://store.steampowered.com/app/*"],

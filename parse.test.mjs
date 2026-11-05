@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import p from './parse.js';
-const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff } = p.default ?? p;
+const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff, urlKey } = p.default ?? p;
 
 test('extractAuthor: 님-패턴', () => {
   assert.equal(extractAuthor('Zvezda님 제작'), 'Zvezda');
@@ -45,6 +45,19 @@ test('pctOff: 가격 문자열 둘의 할인율, 정가 이상이면 0%', () => 
   assert.equal(pctOff('₩ 22,000', '₩ 22,000'), '0%');
   assert.equal(pctOff('₩ 30,000', '₩ 22,000'), '0%');
   assert.equal(pctOff('₩ 11,000', '무료'), null);
+});
+test('urlKey: 같은 링크는 같은 키 (프로토콜/www/끝 슬래시/해시 무시), 다른 경로·쿼리는 다른 키', () => {
+  const k = urlKey('http://cafe.naver.com/fpsgame/1563504');
+  assert.equal(urlKey('https://cafe.naver.com/fpsgame/1563504'), k);
+  assert.equal(urlKey('https://www.cafe.naver.com/fpsgame/1563504/#x'), k);
+  assert.equal(urlKey('https://CAFE.naver.com/fpsgame/1563504/'), k);
+  assert.notEqual(urlKey('https://cafe.naver.com/fpsgame/1563505'), k);
+  assert.notEqual(urlKey('http://steamcommunity.com/sharedfiles/filedetails/?id=1'), urlKey('http://steamcommunity.com/sharedfiles/filedetails/?id=2'));
+});
+test('urlKey: http(s)가 아니거나 URL이 아니면 null', () => {
+  assert.equal(urlKey('javascript:alert(1)'), null);
+  assert.equal(urlKey('not a url'), null);
+  assert.equal(urlKey(''), null);
 });
 test('parseSteamdbTop: 가격에 쉼표 부여', () => {
   assert.deepEqual(parseSteamdbTop(['₩ 11000', '-75%']), { price: '₩ 11,000', discount: '-75%' });

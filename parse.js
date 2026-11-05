@@ -81,6 +81,14 @@ const curatorLink = (propsJson) => {
   return httpUrl(r.link_url) ?? httpUrl(inBlurb);
 };
 
-const api = { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff };
+// 링크 중복 판별 키(프로토콜·www·끝 슬래시·해시 무시). http(s) URL이 아니면 null.
+const urlKey = (u) => {
+  const h = httpUrl(u);
+  if (!h) return null;
+  const x = new URL(h);
+  return x.host.replace(/^www\./, '') + x.pathname.replace(/\/+$/, '') + x.search;
+};
+
+const api = { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff, urlKey };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 else globalThis.RelayParse = api;

@@ -24,6 +24,9 @@
     patchItem: '.kr-patch-link-item',
     patchLink: '.kr-patch-link-text',
     patchDesc: '.kr-patch-link-description',
+    hanpeSection: 'section',
+    hanpeLink: 'a[href^="/han/"]', // 텍스트가 실제 패치 URL (href는 한패 클릭 카운터)
+    hanpeDesc: 'p',
   };
 
   const el = (tag, cls, text) => {
@@ -33,39 +36,66 @@
     return n;
   };
 
-  // 큐레이터 링크(…?curator_clanid=) → 그 페이지 평가문의 실제 링크. href당 1회 조회, 실패 시 원래 링크.
+  // 링크 확장: 큐레이터 링크(…?curator_clanid=) → 평가문 속 실제 링크, 한패넷 게임 페이지 → 그 페이지의 패치 링크들.
+  // href당 1회 조회. 결과 [{url, desc}], 조회 중/실패는 null(→ 원래 링크 표시). 확정되면 재동기화.
   const resolved = new Map();
-  function directLink(href) {
+
+  async function fetchCurator(href) {
+    const html = await fetch(href, { credentials: 'include' }).then((r) => (r.ok ? r.text() : ''));
+    const props = new DOMParser().parseFromString(html, 'text/html').querySelector(SEL.curatorReview)?.dataset.props;
+    const url = props && P.curatorLink(props);
+    return url ? [{ url, desc: '' }] : null;
+  }
+
+  async function fetchHanpe(href) {
+    const html = await chrome.runtime.sendMessage({ type: 'fetchHanpe', url: href }); // CORS 때문에 background 경유
+    if (!html) return null;
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const sec = [...doc.querySelectorAll(SEL.hanpeSection)]
+      .find((s) => s.querySelector('h2')?.textContent.trim() === '한글패치');
+    return [...(sec?.querySelectorAll(SEL.hanpeLink) ?? [])]
+      .map((a) => ({
+        url: a.textContent.trim(),
+        desc: a.parentElement.parentElement.querySelector(SEL.hanpeDesc)?.textContent.trim() ?? '',
+      }))
+      .filter((x) => P.urlKey(x.url));
+  }
+
+  function expand(href) {
     let u;
     try {
       u = new URL(href);
     } catch {
-      return href;
+      return null;
     }
-    if (u.origin !== location.origin || !u.searchParams.has('curator_clanid')) return href;
+    const hanpe = u.origin === 'https://hanpe.net';
+    if (!hanpe && !(u.origin === location.origin && u.searchParams.has('curator_clanid'))) return null;
     if (!resolved.has(href)) {
       resolved.set(href, null);
-      fetch(href, { credentials: 'include' })
-        .then((r) => (r.ok ? r.text() : ''))
-        .then((html) => {
-          const props = new DOMParser().parseFromString(html, 'text/html')
-            .querySelector(SEL.curatorReview)?.dataset.props;
-          const url = props && P.curatorLink(props);
-          if (url) {
-            resolved.set(href, url);
+      (hanpe ? fetchHanpe(href) : fetchCurator(href))
+        .then((list) => {
+          if (list?.length) {
+            resolved.set(href, list);
             requestAnimationFrame(sync);
           }
         })
         .catch(() => {});
     }
-    return resolved.get(href) ?? href;
+    return resolved.get(href);
   }
 
   function readPatch() {
     const banner = document.querySelector(SEL.patch);
     if (!banner) return null;
     const official = !!banner.querySelector(SEL.patchLabel)?.matches(SEL.patchOfficial);
-    const parts = [];
+    const entries = new Map(); // 링크 키 → {text, url, title, named}. 같은 링크는 하나만(이름 있는 쪽 우선)
+    const add = (url, names, fallback, title) => {
+      const named = names.length > 0;
+      const entry = { text: `한글 패치(${named ? names.join(', ') : fallback})`, url, title, named };
+      const key = P.urlKey(url) ?? `#${entries.size}`;
+      const prev = entries.get(key);
+      if (!prev || (!prev.named && named)) entries.set(key, entry);
+    };
     for (const item of banner.querySelectorAll(SEL.patchItem)) {
       const a = item.querySelector(SEL.patchLink);
       const descs = [...item.querySelectorAll(SEL.patchDesc)]
@@ -74,18 +104,27 @@
       if (descs.some((d) => d.includes('공식'))) continue; // 설명에 '공식'이 있는 링크는 표시하지 않음
       const names = [...new Set(descs.map((d) => P.extractAuthor(d)).filter(Boolean))];
       const fallback = (a?.textContent || '').replace(/[[\]]/g, '').trim() || '링크';
-      const text = `한글 패치(${names.length ? names.join(', ') : fallback})`;
-      if (a?.href && a.href !== 'about:blank') {
-        const link = el('a', null, text);
-        link.href = directLink(a.href);
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.title = descs.map((d) => d.replace(/\n/g, ' / ').trim()).join(' / ');
-        parts.push(link);
+      const oneLine = (ds) => ds.map((d) => d.replace(/\n/g, ' / ').trim()).join(' / ');
+      const list = a?.href ? expand(a.href) : null;
+      if (list) {
+        for (const { url, desc } of list) {
+          if (desc.includes('공식')) continue;
+          const own = P.extractAuthor(desc);
+          add(url, own ? [own] : names, fallback, oneLine(desc ? [desc] : descs));
+        }
       } else {
-        parts.push(el('span', null, text));
+        add(a?.href ?? '', names, fallback, oneLine(descs));
       }
     }
+    const parts = [...entries.values()].map(({ text, url, title, named }) => {
+      if (!P.urlKey(url)) return el('span', null, text);
+      const link = el('a', null, text);
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.title = title;
+      return link;
+    });
     if (parts.length || official) return { official, parts };
     const label = banner.querySelector(SEL.patchLabel);
     return label?.textContent.trim() ? { text: label.textContent.trim() } : null;

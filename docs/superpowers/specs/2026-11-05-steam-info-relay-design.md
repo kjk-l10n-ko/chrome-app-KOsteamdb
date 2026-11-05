@@ -4,7 +4,7 @@
 
 ## 목표
 
-`https://store.steampowered.com/app/*` 에서 세 확장이 그린 결과를 **가로채** 게임 정보 탭(`#glanceMidCtn`)에 Steam 기본 행 형식으로 재표시하고, 원래 블록은 숨긴다. 데이터를 직접 조회하지 않는다 — 세 확장이 설치·활성화된 상태가 전제. 유일한 예외: KOSTEAM이 준 퀘이사존 큐레이터 링크를 실제 패치 링크로 바꾸기 위한 같은 origin 큐레이터 페이지 조회(행 1 참고).
+`https://store.steampowered.com/app/*` 에서 세 확장이 그린 결과를 **가로채** 게임 정보 탭(`#glanceMidCtn`)에 Steam 기본 행 형식으로 재표시하고, 원래 블록은 숨긴다. 데이터를 직접 조회하지 않는다 — 세 확장이 설치·활성화된 상태가 전제. 유일한 예외: KOSTEAM이 준 패치 링크를 실제 패치 링크로 바꾸기 위한 조회(퀘이사존 큐레이터 페이지 = 같은 origin, 한패넷 게임 페이지 = `https://hanpe.net/app/*`, 행 1 참고).
 
 | 소스 확장 (조사 버전) | 원본 DOM | 위치 | 특성 |
 |---|---|---|---|
@@ -21,7 +21,8 @@
 ## 구조 (MV3, 빌드 없음)
 
 ```
-manifest.json   content_scripts: matches https://store.steampowered.com/app/*, js [parse.js, content.js], css [hide.css], run_at document_idle. permissions 없음.
+manifest.json   content_scripts: matches https://store.steampowered.com/app/*, js [parse.js, content.js], css [hide.css], run_at document_idle. background service_worker background.js, host_permissions ["https://hanpe.net/*"] (그 외 권한 없음).
+background.js   메시지 {type:'fetchHanpe', url} → https://hanpe.net/app/* 만 fetch해 HTML 텍스트 응답(그 외 null). hanpe.net은 CORS 헤더가 없어 content script에서 직접 fetch 불가.
 hide.css        #hltb-glance, .steamdb_prices, .kr-patch-banner { display: none !important; }
 parse.js        순수 함수 (DOM 비의존 문자열 처리) — 전역 객체 하나로 노출, Node 테스트에서도 로드 가능
 content.js      셀렉터 상수, 소스 읽기, 렌더, MutationObserver
@@ -43,7 +44,11 @@ parse.test.mjs  node --test
    - 유형 라벨이 `.official-steam`(`공식 한국어`) 또는 `.official-with-user`(`공식(추가정보 존재)`) → 맨 앞에 녹색(`#6c3` = SteamDB 평가 `.steamdb_rating_good`) `공식 한글화`, 패치 링크 아이템이 있으면 ` | `로 이어서 표시(`공식 한글화 | 한글 패치(Kiss)`). `공식지원 추정`·다이렉트 게임즈·스토브는 아래 규칙 그대로.
    - `.kr-patch-link-item` 각각 → 링크 1개: `href` = `a.kr-patch-link-text`의 href(큐레이터 링크면 아래 직접 링크로 교체), `target="_blank" rel="noopener noreferrer"`, 텍스트 = `한글 패치({이름})`, `title` = 설명 원문(줄바꿈은 ` / `).
    - 설명(`.kr-patch-link-description`) 중 하나라도 `공식`을 포함하는 아이템은 표시하지 않는다(공식 한글화는 위 `공식 한글화` 표기로 충분). 아이템이 모두 걸러지면 유형 라벨 텍스트.
-   - 큐레이터 링크(같은 origin, `curator_clanid` 파라미터 有): href당 1회 `fetch`(쿠키 포함) → `DOMParser`로 `[data-featuretarget="referring-curator-review"]`의 `data-props` JSON → `curatorLink`: `recommendation.link_url`, 없으면 `blurb`의 첫 `http(s)://` URL(끝 `),.` 제거). http(s)가 아니거나 없음/실패 → 큐레이터 링크 유지. 결과는 메모리 캐시, 확정 시 재동기화.
+   - 링크 확장(`expand(href)`, href당 1회 조회, 결과 메모리 캐시, 확정 시 재동기화, 조회 중/실패 시 원래 링크 표시):
+     - 큐레이터 링크(같은 origin, `curator_clanid` 파라미터 有): `fetch`(쿠키 포함) → `DOMParser`로 `[data-featuretarget="referring-curator-review"]`의 `data-props` JSON → `curatorLink`: `recommendation.link_url`, 없으면 `blurb`의 첫 `http(s)://` URL(끝 `),.` 제거) → 링크 1개.
+     - 한패넷 링크(`https://hanpe.net/*`): background 경유로 페이지 HTML → `DOMParser` → `<h2>`가 `한글패치`인 `section` 안의 `a[href^="/han/"]`(href는 한패 클릭 카운터, **텍스트가 실제 패치 URL**) 각각 → 링크 1개, 설명은 같은 블록의 `<p>`. 이름은 그 설명에 `extractAuthor`(없으면 원래 아이템의 이름/사이트명). http(s)가 아닌 URL은 버림. (36개 한패 페이지 표본에서 링크 텍스트는 전부 완전한 URL.)
+     - 확장된 링크의 설명이 `공식`을 포함하면 표시하지 않는다(아래 규칙과 동일).
+   - **중복 제거**: 링크 키 `urlKey`(프로토콜·`www.`·끝 슬래시·해시 무시, 호스트 소문자) 기준으로 하나만 표시. 먼저 나온 링크의 URL을 유지하되, 먼저 것이 이름 없음(사이트명 대체)이고 중복이 이름 있으면 이름 있는 쪽으로 교체.
    - 이름 = 그 아이템의 `.kr-patch-link-description`들에 `extractAuthor` 적용 → 결과 중복 제거 후 `, ` 결합. 결과 없음 → 사이트명(`.kr-patch-link-text` 텍스트에서 `[`·`]` 문자만 제거, 예: `[ 한패넷 ]`→`한패넷`).
    - 링크 구분자 ` | `.
    - 링크 아이템 0개 → `.kr-patch-type-label` 텍스트(예: `공식 한국어`, `한국어 없음`, `정보 조회 중`).
