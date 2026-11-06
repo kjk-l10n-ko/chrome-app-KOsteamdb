@@ -57,9 +57,9 @@ parse.test.mjs  node --test
    - `parseHltbLines(raw)` → 고정 순서 `[{name, value}]`: `Main Story`→`메인`, `Main + Sides`→`메인+서브`, `Completionist`→`완전 정복`; 없는 항목 생략, 전부 없음 → 행 생략.
    - `hltbHours(text)`: `25½ Hours`→`25.5시간`, `1 Hour`→`1시간`(숫자와 붙여씀), 분은 소수 시간(`30 Minutes`→`0.5시간`, 소수 첫째 자리, 최소 `0.1시간`); `—` 그대로.
    - 표시: 값 칸에 이름/값 2열 그리드(`.kr-relay-grid`, `max-content` 2열, 간격 16px) — 탭 정렬된 3줄.
-3. **`가격(현재/최저):`**
+3. **`가격 (현재/최저):`**
    - 값은 한 줄 `₩ 11,000 (-50%) | ₩ 5,500 (-75%)` (`{현재} | {최저}`). **현재가와 최저가가 같아도 둘 다 표시**. 최저 값이 SteamDB 앱 페이지 링크. 한쪽만 있으면 그쪽만(구분자 없이). 현재가 `0`·숫자 없음(무료) 이고 최저도 없으면 행 생략.
-   - 현재가: `#game_area_purchase .game_area_purchase_game` 중 가격 요소(`.discount_final_price`/`.game_purchase_price`)가 있는 **첫 박스**(데모 다운로드 박스처럼 가격 없는 박스는 건너뜀, 예: `/app/2128270/`)에서 `.discount_final_price` + `.discount_pct`, 없으면 `.game_purchase_price`. **괄호 앞은 한 칸 띄움** (`₩ 11,000 (-50%)`), **할인율 괄호는 할인이 있을 때만**: 할인 없음(0%) → 괄호 생략.
+   - 현재가: `#game_area_purchase .game_area_purchase_game` 중 가격 요소(`.discount_final_price`/`.game_purchase_price`)가 있는 **첫 박스**(데모 다운로드 박스처럼 가격 없는 박스는 건너뜀, 예: `/app/2128270/`)이면서 **꾸러미 박스가 아닌**(`input[name=bundleid]` 없음; 꾸러미 박스엔 꾸러미 자체 가격이 있어 첫 박스일 수 있음, 예: `/app/1296830/`)에서 `.discount_final_price` + `.discount_pct`, 없으면 `.game_purchase_price`. **괄호 앞은 한 칸 띄움** (`₩ 11,000 (-50%)`), **할인율 괄호는 할인이 있을 때만**: 할인 없음(0%) → 괄호 생략.
    - 최저가: `parseSteamdbTop(bTexts)` — `.steamdb_prices_top b` 텍스트 배열. `b[0]` = 가격(4자리 이상 정수에 천 단위 쉼표 부여: `₩ 11000`→`₩ 11,000`); `b[1]`이 `/^-\d+%$/`면 그 할인율. 없으면(정가 최저/2년 최저 변형) 구매 박스 정가(`.discount_original_price`, 할인 없으면 현재가) 대비 `pctOff` 계산 — 결과가 `0%`(정가 이상)이거나 정가를 못 구하면 괄호 생략. `b[0]`이 `…`이거나 요소 없음 → 최저 없음.
 
 ### `extractAuthor(desc)` (parse.js)

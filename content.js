@@ -13,6 +13,7 @@
     hltbText: '#hltb-glance > div:not(.subtitle):not(.column)',
     steamdbTop: '.steamdb_prices_top',
     purchase: '#game_area_purchase .game_area_purchase_game',
+    bundleId: 'input[name="bundleid"]',
     finalPrice: '.discount_final_price',
     discPct: '.discount_pct',
     price: '.game_purchase_price',
@@ -149,9 +150,9 @@
   // 할인율 괄호는 할인이 있을 때만: 현재가는 .discount_pct, 최저가는 SteamDB 값 없으면(정가 최저/2년 최저 변형)
   // 구매 박스의 정가 대비 계산. 0%(정가)는 표기하지 않는다.
   function readPrice() {
-    // 데모 다운로드 박스 등 가격이 없는 박스를 건너뛰고, 가격이 있는 첫 구매 박스(본편)를 쓴다
+    // 본편의 구매 박스: 데모 다운로드 박스(가격 없음)와 꾸러미 박스(input[name=bundleid], 꾸러미 가격)는 건너뛴다.
     const purchase = [...document.querySelectorAll(SEL.purchase)]
-      .find((b) => b.querySelector(`${SEL.finalPrice}, ${SEL.price}`));
+      .find((b) => b.querySelector(`${SEL.finalPrice}, ${SEL.price}`) && !b.querySelector(SEL.bundleId));
     let current = null;
     let disc = null;
     let base = null;
@@ -267,7 +268,7 @@
       parts.push(row('한글 여부:', el('div', null, patch.text)));
     }
     if (hltb) parts.push(row('플레이타임:', hltb.node));
-    if (price) parts.push(row('가격(현재/최저):', price.node));
+    if (price) parts.push(row('가격 (현재/최저):', price.node));
 
     const key = parts.map((r) => serialize([...r.lastChild.childNodes])).join('\u0000');
     if (!parts.length) {
