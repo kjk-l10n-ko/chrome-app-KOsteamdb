@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import p from './parse.js';
-const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, dateLine, commas, pctOff, urlKey } = p.default ?? p;
+const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, dateParts, commas, pctOff, urlKey } = p.default ?? p;
 
 test('extractAuthor: 님-패턴', () => {
   assert.equal(extractAuthor('Zvezda님 제작'), 'Zvezda');
@@ -77,19 +77,24 @@ test('parseHltbLines: 고정 순서 [{name, value}], 없는 항목 생략', () =
   ]);
   assert.equal(parseHltbLines(''), null);
 });
-test('dateLine: 출시일 | 업데이트일 (상대시간), yy.mm.dd', () => {
-  assert.equal(dateLine('2009년 5월 14일', '2025. 3. 14. (8개월 전)'), '09.05.14 | 25.03.14 (8개월 전)');
-  assert.equal(dateLine('2020년 11월 5일', '2025년 11월 25일 (3일 전)'), '20.11.05 | 25.11.25 (3일 전)');
-  assert.equal(dateLine('2009년 5월 14일', '2025. 3. 14.'), '09.05.14 | 25.03.14', '상대시간 없으면 생략');
+test('dateParts: 출시일 + 업데이트(날짜, 상대시간), yy.mm.dd', () => {
+  assert.deepEqual(dateParts('2009년 5월 14일', '2025. 3. 14. (8개월 전)'),
+    { release: '09.05.14', update: { date: '25.03.14', ago: '8개월 전' } });
+  assert.deepEqual(dateParts('2020년 11월 5일', '2025년 11월 25일 (3일 전)'),
+    { release: '20.11.05', update: { date: '25.11.25', ago: '3일 전' } });
+  assert.deepEqual(dateParts('2009년 5월 14일', '2025. 3. 14.'),
+    { release: '09.05.14', update: { date: '25.03.14', ago: null } }, '상대시간 없으면 null');
 });
-test('dateLine: 한쪽만 있으면 그쪽만, 날짜가 아니면 원문 유지', () => {
-  assert.equal(dateLine('2009년 5월 14일', null), '09.05.14');
-  assert.equal(dateLine('2009년 5월 14일', '…'), '09.05.14', 'SteamDB 로딩 중');
-  assert.equal(dateLine('출시 예정', null), '출시 예정');
-  assert.equal(dateLine('2025년 3분기', '2025. 3. 14. (8개월 전)'), '2025년 3분기 | 25.03.14 (8개월 전)');
-  assert.equal(dateLine(null, '2025. 3. 14. (8개월 전)'), '25.03.14 (8개월 전)');
-  assert.equal(dateLine(null, null), null);
-  assert.equal(dateLine('', '…'), null);
+test('dateParts: 한쪽만 있으면 그쪽만, 날짜가 아니면 원문 유지', () => {
+  assert.deepEqual(dateParts('2009년 5월 14일', null), { release: '09.05.14', update: null });
+  assert.deepEqual(dateParts('2009년 5월 14일', '…'), { release: '09.05.14', update: null }, 'SteamDB 로딩 중');
+  assert.deepEqual(dateParts('출시 예정', null), { release: '출시 예정', update: null });
+  assert.deepEqual(dateParts('2025년 3분기', '2025. 3. 14. (8개월 전)'),
+    { release: '2025년 3분기', update: { date: '25.03.14', ago: '8개월 전' } });
+  assert.deepEqual(dateParts(null, '2025. 3. 14. (8개월 전)'),
+    { release: null, update: { date: '25.03.14', ago: '8개월 전' } });
+  assert.equal(dateParts(null, null), null);
+  assert.equal(dateParts('', '…'), null);
 });
 
 const props = (link_url, blurb) => JSON.stringify({ recommendation: { link_url, blurb } });

@@ -23,6 +23,7 @@
     releaseRow: '#glanceMidCtn .release_date',
     releaseDate: '#glanceMidCtn .release_date .date',
     updateDate: '.steamdb_last_update a.date',
+    updateOld: '.steamdb_last_update_old', // SteamDB가 1년 넘은 '(…전)'에 붙이는 클래스(빨간색)
     leftDevRow: '.glance_ctn_responsive_left .dev_row:not(#kr-date)',
     patchItem: '.kr-patch-link-item',
     patchLink: '.kr-patch-link-text',
@@ -94,7 +95,7 @@
     const entries = new Map(); // 링크 키 → {text, url, title, named}. 같은 링크는 하나만(이름 있는 쪽 우선)
     const add = (url, names, fallback, title) => {
       const named = names.length > 0;
-      const entry = { text: `한글 패치(${named ? names.join(', ') : fallback})`, url, title, named };
+      const entry = { text: `한글 패치 (${named ? names.join(', ') : fallback})`, url, title, named };
       const key = P.urlKey(url) ?? `#${entries.size}`;
       const prev = entries.get(key);
       if (!prev || (!prev.named && named)) entries.set(key, entry);
@@ -173,10 +174,10 @@
     const appid = (location.pathname.match(/\/app\/(\d+)/) ?? [])[1];
     if (!hasPrice && !(low && appid)) return null;
     const box = el('div');
-    if (hasPrice) box.append(disc ? `${current}(${disc})` : current);
+    if (hasPrice) box.append(disc ? `${current} (${disc})` : current);
     if (low && appid) {
       const pct = low.discount ?? (base ? P.pctOff(low.price, base) : null);
-      const a = el('a', null, pct && pct !== '0%' ? `${low.price}(${pct})` : low.price);
+      const a = el('a', null, pct && pct !== '0%' ? `${low.price} (${pct})` : low.price);
       a.href = `https://steamdb.info/app/${appid}/`;
       if (box.childNodes.length) box.append(' | ');
       box.append(a);
@@ -202,23 +203,40 @@
   let lastKey = null;
 
   // 출시/업데이트 일자: Steam 출시일 행 바로 앞(같은 위치)에 우리 행을 둔다. 원본(출시일·SteamDB 업데이트)은 hide.css가 숨김.
+  // 업데이트 부분은 SteamDB 원본처럼 /patchnotes/ 링크(a.date), 1년 넘은 '(…전)'은 원본 클래스로 SteamDB가 빨갛게 칠함.
   let dateRow = null;
+  let dateKey = null;
   function syncDate(glance) {
-    const text = P.dateLine(
-      document.querySelector(SEL.releaseDate)?.textContent,
-      document.querySelector(SEL.updateDate)?.textContent,
-    );
+    const upd = document.querySelector(SEL.updateDate);
+    const parts = P.dateParts(document.querySelector(SEL.releaseDate)?.textContent, upd?.textContent);
     const anchor = document.querySelector(SEL.releaseRow) ?? glance.querySelector(SEL.leftDevRow);
-    if (!text || !anchor) {
+    if (!parts || !anchor) {
       dateRow?.remove();
       dateRow = null;
+      dateKey = null;
       return;
     }
+    const href = upd && P.urlKey(upd.href) ? upd.href : null;
+    const old = !!upd?.querySelector(SEL.updateOld);
+    const key = JSON.stringify([parts, href, old]);
     if (!dateRow) {
       dateRow = row('출시/업데이트 일자:', el('div'));
       dateRow.id = 'kr-date';
     }
-    if (dateRow.lastChild.textContent !== text) dateRow.lastChild.textContent = text;
+    if (key !== dateKey) {
+      dateKey = key;
+      const v = dateRow.lastChild;
+      v.replaceChildren();
+      if (parts.release) v.append(parts.release);
+      if (parts.update) {
+        const { date, ago } = parts.update;
+        const a = el(href ? 'a' : 'span', 'date', ago ? `${date} ` : date);
+        if (href) a.href = href;
+        if (ago) a.append(el('span', old ? SEL.updateOld.slice(1) : null, `(${ago})`));
+        if (parts.release) v.append(' | ');
+        v.append(a);
+      }
+    }
     if (dateRow.nextElementSibling !== anchor) anchor.before(dateRow);
   }
 
