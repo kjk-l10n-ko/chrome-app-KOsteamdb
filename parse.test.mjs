@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import p from './parse.js';
-const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, dateParts, commas, pctOff, urlKey } = p.default ?? p;
+const { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLinks, dateParts, commas, pctOff, urlKey } = p.default ?? p;
 
 test('extractAuthor: 님-패턴', () => {
   assert.equal(extractAuthor('Zvezda님 제작'), 'Zvezda');
@@ -16,6 +16,8 @@ test('extractAuthor: 제작자/제작팀 콜론-패턴', () => {
 test('extractAuthor: 패치-대시-패턴', () => {
   assert.equal(extractAuthor('유저 한글 패치 - 한무테'), '한무테');
   assert.equal(extractAuthor('유저 한국어 패치 -'), null);
+  assert.equal(extractAuthor('유저 한국어 패치 ① - Team.SM,\n\n링크:'), 'Team.SM', '번호 ①/②/1 허용, 끝 쉼표 제외');
+  assert.equal(extractAuthor('유저 한국어 패치 ② - 행복한나라 님,'), '행복한나라');
 });
 test('extractAuthor: 제작자 없는 문구 → null', () => {
   assert.equal(extractAuthor(''), null);
@@ -98,23 +100,29 @@ test('dateParts: 한쪽만 있으면 그쪽만, 날짜가 아니면 원문 유�
 });
 
 const props = (link_url, blurb) => JSON.stringify({ recommendation: { link_url, blurb } });
-test('curatorLink: blurb의 첫 http(s) URL (실제 퀘이사존 큐레이터 샘플)', () => {
-  assert.equal(curatorLink(props('', '유저 한국어 패치 - Kiss 님,\n\n링크: https://cafe.naver.com/fpsgame/1563504\n\n')),
-    'https://cafe.naver.com/fpsgame/1563504');
-  assert.equal(curatorLink(props('', '유저 한국어 패치 - QR 님,\n\n링크: http://steamcommunity.com/sharedfiles/filedetails/?id=513304103\n\n\n\n')),
-    'http://steamcommunity.com/sharedfiles/filedetails/?id=513304103');
-  assert.equal(curatorLink(props('', '유저 한국어 패치 링크: https://kimangdae.tistory.com/74')),
-    'https://kimangdae.tistory.com/74');
-  assert.equal(curatorLink(props('', '유저 한국어 패치 - https://arie.tistory.com/164\n\n')),
-    'https://arie.tistory.com/164');
+test('curatorLinks: blurb의 http(s) URL들, 각 URL 앞 문구가 desc (실제 퀘이사존 큐레이터 샘플)', () => {
+  assert.deepEqual(curatorLinks(props('', '유저 한국어 패치 - Kiss 님,\n\n링크: https://cafe.naver.com/fpsgame/1563504\n\n')),
+    [{ url: 'https://cafe.naver.com/fpsgame/1563504', desc: '유저 한국어 패치 - Kiss 님,' }]);
+  assert.deepEqual(curatorLinks(props('', '유저 한국어 패치 링크: https://kimangdae.tistory.com/74')),
+    [{ url: 'https://kimangdae.tistory.com/74', desc: '유저 한국어 패치' }]);
+  assert.deepEqual(curatorLinks(props('', '유저 한국어 패치 - https://arie.tistory.com/164\n\n')),
+    [{ url: 'https://arie.tistory.com/164', desc: '유저 한국어 패치 -' }]);
 });
-test('curatorLink: link_url 우선, 끝 구두점 제거', () => {
-  assert.equal(curatorLink(props('https://a.example/x', '링크: https://b.example/y')), 'https://a.example/x');
-  assert.equal(curatorLink(props('', '링크: https://b.example/y).')), 'https://b.example/y');
+test('curatorLinks: 한 평가문에 링크가 둘 (Kero Blaster)', () => {
+  const blurb = '유저 한국어 패치 ① - Team.SM,\n\n링크: http://team-sm.tistory.com/14\n\n\n\n유저 한국어 패치 ② - 행복한나라 님,\n\n링크: https://blog.naver.com/dlwlghks8779/222084145494\n\n';
+  assert.deepEqual(curatorLinks(props('', blurb)), [
+    { url: 'http://team-sm.tistory.com/14', desc: '유저 한국어 패치 ① - Team.SM,' },
+    { url: 'https://blog.naver.com/dlwlghks8779/222084145494', desc: '유저 한국어 패치 ② - 행복한나라 님,' },
+  ]);
 });
-test('curatorLink: 쓸 수 있는 링크 없음 → null', () => {
-  assert.equal(curatorLink(props('', '유저 한국어 패치')), null);
-  assert.equal(curatorLink(props('javascript:alert(1)', '')), null);
-  assert.equal(curatorLink('{"recommendation":null}'), null);
-  assert.equal(curatorLink('not json'), null);
+test('curatorLinks: link_url 우선, 끝 구두점 제거, 같은 URL 중복 제거', () => {
+  assert.deepEqual(curatorLinks(props('https://a.example/x', '링크: https://b.example/y')), [{ url: 'https://a.example/x', desc: '' }]);
+  assert.deepEqual(curatorLinks(props('', '링크: https://b.example/y).')), [{ url: 'https://b.example/y', desc: '' }]);
+  assert.equal(curatorLinks(props('', 'https://b.example/y 그리고 https://b.example/y')).length, 1);
+});
+test('curatorLinks: 쓸 수 있는 링크 없음 → []', () => {
+  assert.deepEqual(curatorLinks(props('', '유저 한국어 패치')), []);
+  assert.deepEqual(curatorLinks(props('javascript:alert(1)', '')), []);
+  assert.deepEqual(curatorLinks('{"recommendation":null}'), []);
+  assert.deepEqual(curatorLinks('not json'), []);
 });

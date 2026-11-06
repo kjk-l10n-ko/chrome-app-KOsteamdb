@@ -8,7 +8,7 @@ const extractAuthor = (desc) => {
   if (m) return m[1];
   m = s.match(/제작(?:자|팀)\s*[:：]\s*([^\n]+)/);
   if (m && !m[1].includes('정보없음')) return m[1].trim();
-  m = s.match(/패치\s*-\s*(\S+)/);
+  m = s.match(/패치\s*[①-⑳\d]*\s*-\s*([^\s,]+)/);
   return m ? m[1] : null;
 };
 
@@ -82,17 +82,28 @@ const httpUrl = (u) => {
   }
 };
 
-// 큐레이터 평가 data-props JSON → 실제 패치 링크 (link_url 우선, 없으면 blurb 첫 URL)
-const curatorLink = (propsJson) => {
+// 큐레이터 평가 data-props JSON → 패치 링크들 [{url, desc}]. link_url이 있으면 그것 하나, 없으면 blurb의 모든 http(s) URL.
+// desc = 그 URL 바로 앞 문구(직전 URL 이후부터, 끝의 '링크:' 제거) — 한 평가문에 여러 패치가 있을 때 제작자를 URL별로 구분.
+const curatorLinks = (propsJson) => {
   let r;
   try {
     r = JSON.parse(propsJson)?.recommendation;
   } catch {
-    return null;
+    return [];
   }
-  if (!r) return null;
-  const inBlurb = String(r.blurb ?? '').match(/https?:\/\/[^\s<>"']+/)?.[0]?.replace(/[),.]+$/, '');
-  return httpUrl(r.link_url) ?? httpUrl(inBlurb);
+  if (!r) return [];
+  const linkUrl = httpUrl(r.link_url);
+  if (linkUrl) return [{ url: linkUrl, desc: '' }];
+  const blurb = String(r.blurb ?? '');
+  const out = [];
+  let from = 0;
+  for (const m of blurb.matchAll(/https?:\/\/[^\s<>"']+/g)) {
+    const url = httpUrl(m[0].replace(/[),.]+$/, ''));
+    const desc = blurb.slice(from, m.index).replace(/링크\s*[:：]?\s*$/, '').trim();
+    from = m.index + m[0].length;
+    if (url && !out.some((x) => x.url === url)) out.push({ url, desc });
+  }
+  return out;
 };
 
 // 링크 중복 판별 키(프로토콜·www·끝 슬래시·해시 무시). http(s) URL이 아니면 null.
@@ -103,6 +114,6 @@ const urlKey = (u) => {
   return x.host.replace(/^www\./, '') + x.pathname.replace(/\/+$/, '') + x.search;
 };
 
-const api = { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, dateParts, commas, pctOff, urlKey };
+const api = { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLinks, dateParts, commas, pctOff, urlKey };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 else globalThis.RelayParse = api;

@@ -48,8 +48,8 @@
   async function fetchCurator(href) {
     const html = await fetch(href, { credentials: 'include' }).then((r) => (r.ok ? r.text() : ''));
     const props = new DOMParser().parseFromString(html, 'text/html').querySelector(SEL.curatorReview)?.dataset.props;
-    const url = props && P.curatorLink(props);
-    return url ? [{ url, desc: '' }] : null;
+    const list = props ? P.curatorLinks(props) : [];
+    return list.length ? list : null;
   }
 
   async function fetchHanpe(href) {
@@ -96,7 +96,8 @@
     const entries = new Map(); // 링크 키 → {text, url, title, named}. 같은 링크는 하나만(이름 있는 쪽 우선)
     const add = (url, names, fallback, title) => {
       const named = names.length > 0;
-      const entry = { text: `한글 패치 (${named ? names.join(', ') : fallback})`, url, title, named };
+      const name = names.join(', ');
+      const entry = { text: `한글 패치 (${named ? name : fallback})`, url, title, named, name };
       const key = P.urlKey(url) ?? `#${entries.size}`;
       const prev = entries.get(key);
       if (!prev || (!prev.named && named)) entries.set(key, entry);
@@ -121,7 +122,15 @@
         add(a?.href ?? '', names, fallback, oneLine(descs));
       }
     }
-    const parts = [...entries.values()].map(({ text, url, title, named }) => {
+    // 같은 제작자는 한 번만(한패넷·큐레이터가 같은 글을 다른 주소로 준 경우: 예 Kero Blaster 행복한나라). 이름 없는 항목은 그대로.
+    const seenNames = new Set();
+    const unique = [...entries.values()].filter((e) => {
+      if (!e.named) return true;
+      if (seenNames.has(e.name)) return false;
+      seenNames.add(e.name);
+      return true;
+    });
+    const parts = unique.map(({ text, url, title }) => {
       if (!P.urlKey(url)) return el('span', null, text);
       const link = el('a', null, text);
       link.href = url;

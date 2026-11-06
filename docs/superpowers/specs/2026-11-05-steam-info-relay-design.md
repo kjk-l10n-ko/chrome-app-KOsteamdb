@@ -45,9 +45,10 @@ parse.test.mjs  node --test
    - `.kr-patch-link-item` 각각 → 링크 1개: `href` = `a.kr-patch-link-text`의 href(큐레이터 링크면 아래 직접 링크로 교체), `target="_blank" rel="noopener noreferrer"`, 텍스트 = `한글 패치 ({이름})`, `title` = 설명 원문(줄바꿈은 ` / `).
    - 설명(`.kr-patch-link-description`) 중 하나라도 `공식`을 포함하는 아이템은 표시하지 않는다(공식 한글화는 위 `공식 한글화` 표기로 충분). 아이템이 모두 걸러지면 유형 라벨 텍스트.
    - 링크 확장(`expand(href)`, href당 1회 조회, 결과 메모리 캐시, 확정 시 재동기화, 조회 중/실패 시 원래 링크 표시):
-     - 큐레이터 링크(같은 origin, `curator_clanid` 파라미터 有): `fetch`(쿠키 포함) → `DOMParser`로 `[data-featuretarget="referring-curator-review"]`의 `data-props` JSON → `curatorLink`: `recommendation.link_url`, 없으면 `blurb`의 첫 `http(s)://` URL(끝 `),.` 제거) → 링크 1개.
+     - 큐레이터 링크(같은 origin, `curator_clanid` 파라미터 有): `fetch`(쿠키 포함) → `DOMParser`로 `[data-featuretarget="referring-curator-review"]`의 `data-props` JSON → `curatorLinks`: `recommendation.link_url`이 있으면 그것 하나, 없으면 `blurb`의 **모든** `http(s)://` URL(끝 `),.` 제거, 같은 URL 중복 제거) → 링크 여러 개. 각 URL의 desc = 그 URL 바로 앞 문구(직전 URL 이후부터, 끝 `링크:` 제거) — 한 평가문에 패치가 둘이면 URL별로 제작자 구분(예: `/app/292500/` 의 `유저 한국어 패치 ① - Team.SM` / `② - 행복한나라 님`).
      - 한패넷 링크(`https://hanpe.net/*`): background 경유로 페이지 HTML → `DOMParser` → `<h2>`가 `한글패치`인 `section` 안의 `a[href^="/han/"]`(href는 한패 클릭 카운터, **텍스트가 실제 패치 URL**) 각각 → 링크 1개, 설명은 같은 블록의 `<p>`. 이름은 그 설명에 `extractAuthor`(없으면 원래 아이템의 이름/사이트명). http(s)가 아닌 URL은 버림. (36개 한패 페이지 표본에서 링크 텍스트는 전부 완전한 URL.)
      - 확장된 링크의 설명이 `공식`을 포함하면 표시하지 않는다(아래 규칙과 동일).
+   - **같은 제작자는 한 번만**: 이름이 있는 항목은 이름이 같으면 먼저 나온 것만 표시(한패넷과 큐레이터가 같은 글을 서로 다른 주소로 줘서 URL 중복 제거로는 안 잡히는 경우, 예: Kero Blaster 행복한나라 `blog.naver.com/heartbroken_happy/…` vs `…/dlwlghks8779/…`). 한계: 한 제작자의 서로 다른 패치 둘도 하나로 합쳐진다.
    - **중복 제거**: 링크 키 `urlKey`(프로토콜·`www.`·끝 슬래시·해시 무시, 호스트 소문자) 기준으로 하나만 표시. 먼저 나온 링크의 URL을 유지하되, 먼저 것이 이름 없음(사이트명 대체)이고 중복이 이름 있으면 이름 있는 쪽으로 교체.
    - 이름 = 그 아이템의 `.kr-patch-link-description`들에 `extractAuthor` 적용 → 결과 중복 제거 후 `, ` 결합. 결과 없음 → 사이트명(`.kr-patch-link-text` 텍스트에서 `[`·`]` 문자만 제거, 예: `[ 한패넷 ]`→`한패넷`).
    - 링크 구분자 ` | `.
