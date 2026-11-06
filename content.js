@@ -149,7 +149,9 @@
   // 할인율 괄호는 할인이 있을 때만: 현재가는 .discount_pct, 최저가는 SteamDB 값 없으면(정가 최저/2년 최저 변형)
   // 구매 박스의 정가 대비 계산. 0%(정가)는 표기하지 않는다.
   function readPrice() {
-    const purchase = document.querySelector(SEL.purchase);
+    // 데모 다운로드 박스 등 가격이 없는 박스를 건너뛰고, 가격이 있는 첫 구매 박스(본편)를 쓴다
+    const purchase = [...document.querySelectorAll(SEL.purchase)]
+      .find((b) => b.querySelector(`${SEL.finalPrice}, ${SEL.price}`));
     let current = null;
     let disc = null;
     let base = null;
