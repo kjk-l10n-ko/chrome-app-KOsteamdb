@@ -35,8 +35,24 @@ const parseHltbLines = (raw) => {
   return out.length ? out : null;
 };
 
-// SteamDB ko 'dateStyle: medium' 날짜 '2025. 3. 14.' → '2025년 3월 14일'
-const koDate = (text) => text.replace(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\./, '$1년 $2월 $3일');
+// 'YYYY년 M월 D일' 또는 SteamDB ko 'YYYY. M. D.' → 'yy.mm.dd', 날짜가 아니면 null
+const shortDate = (text) => {
+  const m = text.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/) ?? text.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\./);
+  return m ? `${m[1].slice(2)}.${m[2].padStart(2, '0')}.${m[3].padStart(2, '0')}` : null;
+};
+
+// '출시일 | 업데이트일 (8개월 전)'. 출시일이 날짜가 아니면(출시 예정 등) 원문, 업데이트가 날짜가 아니면(…) 생략. 둘 다 없으면 null
+const dateLine = (releaseText, updateText) => {
+  const rel = (releaseText ?? '').trim();
+  const out = [];
+  if (rel) out.push(shortDate(rel) ?? rel);
+  const upd = shortDate(updateText ?? '');
+  if (upd) {
+    const ago = (updateText.match(/\(([^)]+)\)/) ?? [])[1];
+    out.push(ago ? `${upd} (${ago})` : upd);
+  }
+  return out.length ? out.join(' | ') : null;
+};
 
 // 4자리 이상 정수에 천 단위 쉼표 ('₩ 11000' → '₩ 11,000'); 이미 쉼표 있으면 그대로
 const commas = (s) => s.replace(/\d{4,}/g, (d) => d.replace(/\B(?=(\d{3})+$)/g, ','));
@@ -89,6 +105,6 @@ const urlKey = (u) => {
   return x.host.replace(/^www\./, '') + x.pathname.replace(/\/+$/, '') + x.search;
 };
 
-const api = { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, koDate, commas, pctOff, urlKey };
+const api = { extractAuthor, hltbHours, parseHltbLines, parseSteamdbTop, curatorLink, dateLine, commas, pctOff, urlKey };
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 else globalThis.RelayParse = api;

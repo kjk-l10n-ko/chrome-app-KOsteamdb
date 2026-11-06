@@ -23,7 +23,7 @@
 ```
 manifest.json   content_scripts: matches https://store.steampowered.com/app/*, js [parse.js, content.js], css [hide.css], run_at document_idle. background service_worker background.js, host_permissions ["https://hanpe.net/*"] (그 외 권한 없음).
 background.js   메시지 {type:'fetchHanpe', url} → https://hanpe.net/app/* 만 fetch해 HTML 텍스트 응답(그 외 null). hanpe.net은 CORS 헤더가 없어 content script에서 직접 fetch 불가.
-hide.css        #hltb-glance, .steamdb_prices, .kr-patch-banner { display: none !important; }
+hide.css        #hltb-glance, .steamdb_prices, .kr-patch-banner, #glanceMidCtn .release_date, .steamdb_last_update { display: none !important; }
 parse.js        순수 함수 (DOM 비의존 문자열 처리) — 전역 객체 하나로 노출, Node 테스트에서도 로드 가능
 content.js      셀렉터 상수, 소스 읽기, 렌더, MutationObserver
 parse.test.mjs  node --test
@@ -57,10 +57,10 @@ parse.test.mjs  node --test
    - `parseHltbLines(raw)` → 고정 순서 `[{name, value}]`: `Main Story`→`메인`, `Main + Sides`→`메인+서브`, `Completionist`→`완전 정복`; 없는 항목 생략, 전부 없음 → 행 생략.
    - `hltbHours(text)`: `25½ Hours`→`25.5시간`, `1 Hour`→`1시간`(숫자와 붙여씀), 분은 소수 시간(`30 Minutes`→`0.5시간`, 소수 첫째 자리, 최소 `0.1시간`); `—` 그대로.
    - 표시: 값 칸에 이름/값 2열 그리드(`.kr-relay-grid`, `max-content` 2열, 간격 16px) — 탭 정렬된 3줄.
-3. **`가격:`**
-   - 표시는 이름/값 2열 그리드 2줄: `현재  ₩ 21,000(-50%)` / `최저  ₩ 11,000(-75%)`(최저 값이 SteamDB 앱 페이지 링크). 한쪽만 있으면 그 줄만. 현재가 `0`·숫자 없음(무료) 이고 최저도 없으면 행 생략.
+3. **`가격(현재/최저):`**
+   - 값은 한 줄 `₩ 11,000(-50%) | ₩ 5,500(-75%)` (`{현재} | {최저}`). **현재가와 최저가가 같아도 둘 다 표시**. 최저 값이 SteamDB 앱 페이지 링크. 한쪽만 있으면 그쪽만(구분자 없이). 현재가 `0`·숫자 없음(무료) 이고 최저도 없으면 행 생략.
    - 현재가: `#game_area_purchase .game_area_purchase_game` 첫 요소에서 `.discount_final_price` + `.discount_pct`, 없으면 `.game_purchase_price`. **할인율 괄호는 할인이 있을 때만**: 할인 없음(0%) → 괄호 생략.
-   - 최저가: `parseSteamdbTop(bTexts)` — `.steamdb_prices_top b` 텍스트 배열. `b[0]` = 가격(4자리 이상 정수에 천 단위 쉼표 부여: `₩ 11000`→`₩ 11,000`); `b[1]`이 `/^-\d+%$/`면 그 할인율. 없으면(정가 최저/2년 최저 변형) 구매 박스 정가(`.discount_original_price`, 할인 없으면 현재가) 대비 `pctOff` 계산 — 결과가 `0%`(정가 이상)이거나 정가를 못 구하면 괄호 생략. `b[0]`이 `…`이거나 요소 없음 → 최저 줄 없음.
+   - 최저가: `parseSteamdbTop(bTexts)` — `.steamdb_prices_top b` 텍스트 배열. `b[0]` = 가격(4자리 이상 정수에 천 단위 쉼표 부여: `₩ 11000`→`₩ 11,000`); `b[1]`이 `/^-\d+%$/`면 그 할인율. 없으면(정가 최저/2년 최저 변형) 구매 박스 정가(`.discount_original_price`, 할인 없으면 현재가) 대비 `pctOff` 계산 — 결과가 `0%`(정가 이상)이거나 정가를 못 구하면 괄호 생략. `b[0]`이 `…`이거나 요소 없음 → 최저 없음.
 
 ### `extractAuthor(desc)` (parse.js)
 순서대로 첫 매치:
@@ -76,11 +76,14 @@ KoSteam `lookup.json`(2026-11-05) 설명 6,911건 대상 1~3 기준 70% 추출; 
 - 셀렉터 불일치·소스 확장 미설치 → 해당 행만 생략. 원본은 CSS로 계속 숨김(승인된 트레이드오프: 소스 DOM이 바뀌면 그 정보가 사라짐; 셀렉터는 `content.js` 상단 상수 한 곳).
 - KoSteam 배너가 숨겨지면 그것이 대체한 Steam "한국어 미지원" 안내도 안 보임 → `한국어 없음` 행이 대신 전달.
 
-## SteamDB `최근 업데이트` 날짜 (제자리 수정)
+## `출시/업데이트 일자:` 행 (원래 날짜 행과 같은 위치)
 
-SteamDB가 그리는 `.dev_row.steamdb_last_update > a.date`(및 반응형 `#appHeaderGridContainer a[href$="/patchnotes/"]`)는 숨기지 않고 위치도 그대로 둔다. 첫 텍스트 노드에 `koDate` 적용: `2025. 3. 14.`(ko `dateStyle: medium`) → `2025년 3월 14일`, 뒤의 `(8개월 전)`은 유지. 멱등이라 관찰자 루프 없음; SteamDB의 비동기 채움 후에도 다음 sync가 변환.
+`#kr-relay`(태그 열 앞)가 아니라, Steam 출시일 행 `#glanceMidCtn .release_date`(왼쪽 열) **바로 앞**에 별도 행 `div#kr-date.dev_row`를 둔다(출시일 행이 없으면 왼쪽 열 첫 `.dev_row` 앞). 원본인 Steam 출시일 행과 SteamDB `.steamdb_last_update` 행은 hide.css로 숨긴다(수정하지 않음). 반응형 `#appHeaderGridContainer`(≤~910px)의 날짜는 건드리지 않는다(거기엔 우리 행이 보이지 않음).
+- 값 `dateLine(release, update)`: `09.05.14 | 25.03.14 (8개월 전)` — `yy.mm.dd`(0 채움), 출시일 먼저. 입력은 `.release_date .date` 텍스트(`2009년 5월 14일`)와 `.steamdb_last_update a.date` 텍스트(`2025. 3. 14. (8개월 전)`). `(8개월 전)`은 SteamDB 텍스트의 괄호 부분 그대로. 
+- 출시일이 날짜가 아니면(`출시 예정`, `2025년 3분기`) 원문 그대로. SteamDB 날짜가 없거나 `…`(로딩)·제거(실패)면 출시일만(구분자 없음). 둘 다 없으면 행 없음.
+- 매 `sync()`마다 갱신(멱등: 텍스트·위치가 같으면 변경 없음) — SteamDB의 비동기 채움을 따라간다.
 
 ## 테스트
 
-- `node --test parse.test.mjs`: `extractAuthor`(위 예시 전부 + `제작자 : 정보없음`→`null`, `''`→`null`), `hltbHours`(`25½ Hours`, `1 Hour`, `30/45/1 Minutes`, `—`), `parseHltbLines`(순서·생략), `koDate`(변환·보존·멱등), `parseSteamdbTop`(할인 변형, 2년 최저가 변형, `…`), `curatorLink`.
+- `node --test parse.test.mjs`: `extractAuthor`(위 예시 전부 + `제작자 : 정보없음`→`null`, `''`→`null`), `hltbHours`(`25½ Hours`, `1 Hour`, `30/45/1 Minutes`, `—`), `parseHltbLines`(순서·생략), `dateLine`(둘 다/한쪽만/날짜 아님/로딩 `…`), `parseSteamdbTop`(할인 변형, 2년 최저가 변형, `…`), `curatorLink`, `urlKey`.
 - 수동: Chrome에 세 확장 + 압축해제 로드 후 `/app/1250/`(유저패치 2소스), `/app/1145360/`(공식 한국어·할인 여부), 무료 게임(가격 행에 현재가만 또는 생략) 확인. 원본 세 블록이 안 보이고 SteamDB·KoSteam 나머지 UI는 보이는지 확인.

@@ -20,7 +20,10 @@
     patch: '.kr-patch-banner',
     patchLabel: '.kr-patch-type-label',
     patchOfficial: '.official-steam, .official-with-user', // 공식 한국어 / 공식(추가정보 존재)
-    lastUpdate: '.steamdb_last_update a.date, #appHeaderGridContainer a[href$="/patchnotes/"]',
+    releaseRow: '#glanceMidCtn .release_date',
+    releaseDate: '#glanceMidCtn .release_date .date',
+    updateDate: '.steamdb_last_update a.date',
+    leftDevRow: '.glance_ctn_responsive_left .dev_row:not(#kr-date)',
     patchItem: '.kr-patch-link-item',
     patchLink: '.kr-patch-link-text',
     patchDesc: '.kr-patch-link-description',
@@ -169,13 +172,14 @@
     const low = P.parseSteamdbTop(bs);
     const appid = (location.pathname.match(/\/app\/(\d+)/) ?? [])[1];
     if (!hasPrice && !(low && appid)) return null;
-    const box = el('div', 'kr-relay-grid');
-    if (hasPrice) box.append(el('span', null, '현재'), el('span', null, disc ? `${current}(${disc})` : current));
+    const box = el('div');
+    if (hasPrice) box.append(disc ? `${current}(${disc})` : current);
     if (low && appid) {
       const pct = low.discount ?? (base ? P.pctOff(low.price, base) : null);
       const a = el('a', null, pct && pct !== '0%' ? `${low.price}(${pct})` : low.price);
       a.href = `https://steamdb.info/app/${appid}/`;
-      box.append(el('span', null, '최저'), a);
+      if (box.childNodes.length) box.append(' | ');
+      box.append(a);
     }
     return { node: box };
   }
@@ -197,25 +201,38 @@
   let relay = null;
   let lastKey = null;
 
-  // SteamDB '최근 업데이트' 날짜를 제자리에서 'YYYY년 M월 D일'로. 멱등이라 관찰자 루프 없음.
-  function fixDates() {
-    for (const a of document.querySelectorAll(SEL.lastUpdate)) {
-      const t = a.firstChild;
-      if (t?.nodeType !== 3) continue;
-      const k = P.koDate(t.textContent);
-      if (k !== t.textContent) t.textContent = k;
+  // 출시/업데이트 일자: Steam 출시일 행 바로 앞(같은 위치)에 우리 행을 둔다. 원본(출시일·SteamDB 업데이트)은 hide.css가 숨김.
+  let dateRow = null;
+  function syncDate(glance) {
+    const text = P.dateLine(
+      document.querySelector(SEL.releaseDate)?.textContent,
+      document.querySelector(SEL.updateDate)?.textContent,
+    );
+    const anchor = document.querySelector(SEL.releaseRow) ?? glance.querySelector(SEL.leftDevRow);
+    if (!text || !anchor) {
+      dateRow?.remove();
+      dateRow = null;
+      return;
     }
+    if (!dateRow) {
+      dateRow = row('출시/업데이트 일자:', el('div'));
+      dateRow.id = 'kr-date';
+    }
+    if (dateRow.lastChild.textContent !== text) dateRow.lastChild.textContent = text;
+    if (dateRow.nextElementSibling !== anchor) anchor.before(dateRow);
   }
 
   function sync() {
-    fixDates();
     const glance = document.querySelector(SEL.glance);
     if (!glance) {
       relay?.remove();
       relay = null;
       lastKey = null;
+      dateRow?.remove();
+      dateRow = null;
       return;
     }
+    syncDate(glance);
     const patch = readPatch();
     const hltb = readHltb();
     const price = readPrice();
@@ -230,7 +247,7 @@
       parts.push(row('한글 여부:', el('div', null, patch.text)));
     }
     if (hltb) parts.push(row('플레이타임:', hltb.node));
-    if (price) parts.push(row('가격:', price.node));
+    if (price) parts.push(row('가격(현재/최저):', price.node));
 
     const key = parts.map((r) => serialize([...r.lastChild.childNodes])).join('\u0000');
     if (!parts.length) {
