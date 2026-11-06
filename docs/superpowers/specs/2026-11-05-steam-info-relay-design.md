@@ -34,7 +34,7 @@ parse.test.mjs  node --test
 ### 동기화 루프
 - `MutationObserver(document.body, { childList: true, subtree: true, characterData: true })` → `requestAnimationFrame`으로 디바운스 → `sync()`.
 - `sync()`: 세 소스를 읽어 행 모델 `[{label, nodes}]` 생성 → 직렬화 키(텍스트+href)가 직전과 같으면 아무것도 하지 않음(자기 변경으로 인한 루프 방지).
-- 컨테이너: `div#kr-relay` (`display: contents`, `.dev_row` 아님). 매 sync마다 `#glanceMidCtn`의 태그 열 `.glance_ctn_responsive_right` 바로 앞(태그가 맨 아래)으로 이동, 태그 열이 없으면 끝. 왼쪽 열(`.glance_ctn_responsive_left`) 안에 넣지 않는 이유: 그러면 우리 마지막 행이 HLTB 앵커 `#glanceMidCtn .dev_row:last-child`에 먼저 매칭돼 HLTB가 우리 컨테이너 안에 마운트된다. 현재 위치에선 HLTB가 실제 마지막 dev_row(배급사) 뒤에 붙고, 숨겨진다. 한계: Steam 반응형 ≤560px(두 열 float) 레이아웃에선 행 배치가 어색할 수 있음.
+- 컨테이너: `div#kr-relay` (일반 block, `.dev_row` 아님 — `display: contents`로 하면 Steam wide 레이아웃의 `#glanceMidCtn{display:flex;flex-direction:column;justify-content:space-around}` 때문에 각 행이 별개 flex 아이템이 돼 남는 높이가 행 사이로 분배되어 간격이 벌어진다. hide.css가 `#glanceMidCtn{justify-content:flex-start}`로 위에서부터 쌓는다). 매 sync마다 `#glanceMidCtn`의 태그 열 `.glance_ctn_responsive_right` 바로 앞(태그가 맨 아래)으로 이동, 태그 열이 없으면 끝. 왼쪽 열(`.glance_ctn_responsive_left`) 안에 넣지 않는 이유: 그러면 우리 마지막 행이 HLTB 앵커 `#glanceMidCtn .dev_row:last-child`에 먼저 매칭돼 HLTB가 우리 컨테이너 안에 마운트된다. 현재 위치에선 HLTB가 실제 마지막 dev_row(배급사) 뒤에 붙고, 숨겨진다. 한계: Steam 반응형 ≤560px(두 열 float) 레이아웃에선 행 배치가 어색할 수 있음.
 - `#glanceMidCtn` 없음(연령 확인 페이지 등) → 아무것도 안 함.
 
 ### 행 형식 (표시 순서 고정)

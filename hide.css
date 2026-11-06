@@ -3,5 +3,7 @@
 #kr-date { padding: 9px 0 13px; } /* Steam .glance_ctn .release_date 와 같은 위아래 여백 */
 #kr-relay a { color: #66c0f4; }
 #kr-relay a:hover { color: #ffffff; }
+/* Steam wide 레이아웃의 #glanceMidCtn 은 flex column + space-around: 남는 높이가 자식 사이에 분배돼 행 사이가 벌어짐 → 위에서부터 쌓는다 */
+#glanceMidCtn { justify-content: flex-start !important; }
 #kr-relay .kr-relay-official { color: #6c3; } /* SteamDB .steamdb_rating_good */
 #kr-relay .kr-relay-grid { display: grid; grid-template-columns: max-content max-content; column-gap: 16px; }

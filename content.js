@@ -289,7 +289,6 @@
     lastKey = key;
     relay ??= el('div', null);
     relay.id = 'kr-relay';
-    relay.style.display = 'contents';
     relay.replaceChildren(...parts);
     place();
   }
