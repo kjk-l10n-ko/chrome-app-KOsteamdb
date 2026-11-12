@@ -1,4 +1,4 @@
-# Steam Info Relay — 설계
+# KOsteamdb (구 Steam Info Relay) — 설계
 
 날짜: 2026-11-05 · 상태: 승인됨
 

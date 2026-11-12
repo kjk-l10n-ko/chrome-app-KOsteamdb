@@ -1,4 +1,4 @@
-/* Steam Info Relay — 순수 파서. DOM 비의존.
+/* KOsteamdb — 순수 파서. DOM 비의존.
    사양: docs/superpowers/specs/2026-11-05-steam-info-relay-design.md */
 
 const extractAuthor = (desc) => {

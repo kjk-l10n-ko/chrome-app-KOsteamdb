@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Steam Info Relay",
+  "name": "KOsteamdb",
   "version": "0.1.0",
   "description": "Re-renders Steam HLTB / SteamDB lowest price / KOSTEAM patch info as glance rows.",
   "host_permissions": ["https://hanpe.net/*"],

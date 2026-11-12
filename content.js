@@ -1,4 +1,4 @@
-/* Steam Info Relay
+/* KOsteamdb
    Steam HLTB / SteamDB / KOSTEAM이 주입한 DOM을 읽어 #glanceMidCtn의 태그 열 앞에
    우리 행('한글 여부:', '플레이타임:', '가격:')으로 다시 그린다.
    원본은 hide.css가 숨긴다. 셀렉터는 SEL 상수 한 곳.

@@ -1,4 +1,4 @@
-# Steam Info Relay
+# KOsteamdb
 
 Chrome MV3 확장. `store.steampowered.com/app/*`에서 아래 세 확장이 주입한 DOM을 가로채어
 게임 정보 탭(`#glanceMidCtn`, 태그 열 위)에 Steam 기본 행 형식으로 다시 표시하고, 원본 블록은 숨긴다. 링크는 파란색.
